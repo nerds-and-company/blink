@@ -1,18 +1,5 @@
 defmodule Blink do
   @moduledoc """
-  Documentation for `Blink`.
+  Fast data seeding in Ecto projects with `Blink`.
   """
-
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Blink.hello()
-      :world
-
-  """
-  def hello do
-    :world
-  end
 end
