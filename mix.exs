@@ -18,6 +18,8 @@ defmodule Blink.MixProject do
   end
 
   defp deps do
-    []
+    [
+      {:ecto_sql, "~> 3.0"}
+    ]
   end
 end
