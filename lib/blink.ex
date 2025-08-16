@@ -17,21 +17,21 @@ defmodule Blink do
   the records you want to seed, along with any helper data you need but do not
   want to insert into the database”.
 
-  A `Store` struct contains the keys `seeds` and `helpers`:
+  A `Store` struct contains the keys `tables` and `helpers`:
 
       Blink.Store{
-        seeds: %{
+        tables: %{
           "table_name" => [...]
         },
         helpers: %{
-          "arbitrary_key" => [...]
+          "helper_name" => [...]
         }
       }
 
-  All keys in `seeds` must match the name of a table in your database. Table
+  All keys in `tables` must match the name of a table in your database. Table
   names can be either atoms or strings.
 
-  ### Seeds
+  ### Tables
 
   A mapping of table names to lists of records. These records will be persisted
   to the database when `insert_all/2` or `insert_all/3` are called.
@@ -66,76 +66,69 @@ defmodule Blink do
           |> insert_all(MyApp.Repo, batch_size: 1_200)
         end
 
-        def build(_store, "users") do
+        def table(_store, "users") do
           [
             %{id: 1, name: "Alice", email: "alice@example.com"},
             %{id: 2, name: "Bob", email: "bob@example.com"}
           ]
         end
 
-        def build(_store, "post_ids", :helpers) do
+        def helper(_store, "post_ids") do
           [1, 2, 3]
         end
       end
 
-  ## Custom Logic for Inserting Seeds
+  ## Custom Logic for Inserting Records
 
-  The functions `insert_all/2` and `insert_all/3` bulk insert your seed data
-  into a PostgreSQL database using PostgreSQL's `COPY` command. You can override
-  the default implementation by defining your own `insert_all/2` or
+  The functions `insert_all/2` and `insert_all/3` bulk insert the table records
+  in a `Store` into a Postgres database using Postgres' `COPY` command. You can
+  override the default implementation by defining your own `insert_all/2` or
   `insert_all/3` function in your Blink module. Doing so you can support seeding
-  databases other than PostgreSQL.
-
-  ### Example
-
-      defmodule MyApp.Seeder do
-        use Blink
-
-        def insert_all(store, repo, opts) do
-          Enum.each(store.seeds, fn {table, records} ->
-            repo.insert_all(table, records, opts)
-          end)
-        end
-      end
+  databases other than Postgres.
   """
 
   alias Blink.Store
 
   @doc """
-  Builds data for a database table and adds it to the `seeds` of a given `Store`.
+  Builds and returns the records to be stored under a table key in the given `Store`.
 
-  Data added to a store with `build/2` is inserted into the corresponding
-  database table when `insert_all/2` or `insert_all/3` are called.
+  The callback `table/2` is called by `put_table/2` internally, passing the
+  given database table name to `table/2`. Therefore, each table name passed to a
+  `put_table/2` clause must match a `table/2` clause.
+
+  Data added to a store with `table/2` is inserted into the corresponding
+  database table when calling `insert_all/2` or `insert_all/3`.
+
+  When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback build(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
+  @callback table(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
 
   @doc """
-  Builds data and adds it to the `seeds` or `helpers` of a given `Store`.
+  Builds and returns the data to be stored under a helper key in the given `Store`.
 
-  Use the `target` parameter of `build/3` to specify whether to assign the data
-  to the `:seeds` or `:helpers` key.
+  The callback `helper/2` is called by `put_helper/2` internally, passing the
+  given helper name to `helper/2`. Therefore, each helper name passed to a
+  `put_helper/2` clause must match a `helper/2` clause.
 
-  Data in the `:seeds` key will be inserted into the database when `insert_all/2`
-  or `insert_all/3` are called. Data in the `:helpers` key is ignored during
-  insertion.
+  Unlike the data stored under `:tables`, the data in the :helpers key is ignored
+  when calling `insert_all/2` or `insert_all/3`.
+
+  When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback build(
-              store :: Store.t(),
-              table_or_helper_name :: binary() | atom(),
-              target :: :seeds | :helpers
-            ) :: [
-              map()
-            ]
+  @callback helper(store :: Store.t(), table_or_helper_name :: binary() | atom()) :: [map()]
 
   @doc """
-  Bulk inserts the seed data from a store to the given Ecto repository.
+  Specifies how to perform a bulk insert of the seed data from a `Store`
+  into the given Ecto repository.
 
-  This callback function is optional, since Blink ships with a default implementation for Postgres databases.
+  This callback function is optional, since Blink ships with a default
+  implementation for Postgres databases.
   """
+  @callback insert_all(store :: Store.t(), repo :: Ecto.Repo.t()) :: :ok | :error
   @callback insert_all(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               :ok | :error
 
-  @optional_callbacks [build: 2, build: 3, insert_all: 3]
+  @optional_callbacks [table: 2, helper: 2, insert_all: 2, insert_all: 3]
 
   defmacro __using__(_) do
     quote do
@@ -148,7 +141,7 @@ defmodule Blink do
       ## Example
 
           iex> new_store()
-          %Store{seeds: %{}, helpers: %{}}
+          %Store{tables: %{}, helpers: %{}}
       """
       @spec new_store() :: Store.t()
       def new_store do
@@ -158,19 +151,19 @@ defmodule Blink do
       @spec put_table(store :: Store.t(), table_name :: binary() | atom()) :: Store.t()
       def put_table(%Store{} = store, table_name)
           when is_binary(table_name) or is_atom(table_name) do
-        raise_if_key_exists(store, table_name)
+        raise_if_key_exists(store, table_name, :tables)
 
-        put_in(store.seeds[table_name], build(store, table_name))
+        put_in(store.tables[table_name], table(store, table_name))
       end
 
       @spec put_helper(store :: Store.t(), key :: binary() | atom()) :: Store.t()
       def put_helper(%Store{} = store, key) when is_binary(key) or is_atom(key) do
         raise_if_key_exists(store, key, :helpers)
 
-        put_in(store.helpers[key], build(store, key, :helpers))
+        put_in(store.helpers[key], helper(store, key))
       end
 
-      defp raise_if_key_exists(%Store{} = store, key, target \\ :seeds) do
+      defp raise_if_key_exists(%Store{} = store, key, target) do
         keys_as_strings =
           store[target]
           |> Map.keys()
@@ -184,25 +177,24 @@ defmodule Blink do
       defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
       defp key_to_string(key) when is_binary(key), do: key
 
-      @spec build(
+      @spec table(
               store :: Store.t(),
-              table_or_helper_name :: binary() | atom(),
-              target :: :seeds | :helpers
+              table_or_helper_name :: binary() | atom()
             ) :: [map()]
-      def build(store, table_or_helper_name, target \\ :seeds)
+      def table(store, table_or_helper_name)
 
-      def build(%Store{}, table_name, :seeds) do
+      def table(%Store{}, table_name) do
         raise ArgumentError,
-              "you must define build/2 clauses that correspond with your calls to put_table/2"
+              "you must define table/2 clauses that correspond with your calls to put_table/2"
       end
 
-      def build(%Store{}, helper_name, :helpers) do
+      def helper(%Store{}, helper_name) do
         raise ArgumentError,
-              "you must define build/2 clauses that correspond with your calls to put_helper/2"
+              "you must define helper/2 clauses that correspond with your calls to put_helper/2"
       end
 
       @doc """
-      Inserts all table records from a Store's seeds into the given repository.
+      Inserts all table records from a Store's into the given repository.
       Iterates over the tables in order when seeding the database.
 
       The repo parameter must be a module that implements the Ecto.Repo
@@ -215,7 +207,7 @@ defmodule Blink do
               :ok | {:error, any()}
       def insert_all(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
         repo.transact(fn ->
-          Enum.each(store.seeds, fn {table_name, items} ->
+          Enum.each(store.tables, fn {table_name, items} ->
             copy_to_table(items, table_name, repo, opts)
           end)
         end)
@@ -225,8 +217,8 @@ defmodule Blink do
         end
       end
 
-      defp copy_to_table(%Store{seeds: seeds}, table_name, repo, opts) do
-        columns = Map.keys(seeds)
+      defp copy_to_table(%Store{tables: tables}, table_name, repo, opts) do
+        columns = Map.keys(tables)
         columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
 
         format_csv_value = fn
@@ -245,7 +237,7 @@ defmodule Blink do
             """
           )
 
-        seeds
+        tables
         |> Stream.chunk_every(Keyword.get(opts, :batch_size, @default_batch_size))
         |> Enum.into(stream, fn chunk ->
           chunk

@@ -4,28 +4,28 @@ defmodule Blink.Store do
 
   A `Store` is a container for two kinds of data:
 
-    * `:seeds` — data that you intend to seed.
+    * `:tables` — data that you intend to seed.
     * `:helpers` — transient data available to pipeline steps but ignored during
       seeding.
   """
 
-  defstruct seeds: %{}, helpers: %{}
+  defstruct tables: %{}, helpers: %{}
   @behaviour Access
 
   @type t :: %__MODULE__{
-          seeds: map(),
+          tables: map(),
           helpers: map()
         }
 
   @impl Access
-  def fetch(%__MODULE__{} = store, key) when key in [:seeds, :helpers] do
+  def fetch(%__MODULE__{} = store, key) when key in [:tables, :helpers] do
     {:ok, Map.get(store, key)}
   end
 
   def fetch(_, _), do: :error
 
   @impl Access
-  def get_and_update(%__MODULE__{} = store, key, fun) when key in [:seeds, :helpers] do
+  def get_and_update(%__MODULE__{} = store, key, fun) when key in [:tables, :helpers] do
     {get_value, new_value} = fun.(Map.get(store, key))
     {get_value, Map.put(store, key, new_value)}
   end
@@ -33,7 +33,7 @@ defmodule Blink.Store do
   def get_and_update(store, _, _), do: {nil, store}
 
   @impl Access
-  def pop(%__MODULE__{} = store, key) when key in [:seeds, :helpers] do
+  def pop(%__MODULE__{} = store, key) when key in [:tables, :helpers] do
     {Map.get(store, key), Map.put(store, key, nil)}
   end
 

@@ -17,7 +17,7 @@ defmodule BlinkTest do
         use Blink
       end
 
-      assert %Store{seeds: %{}, helpers: %{}} = Dummy.new_store()
+      assert %Store{tables: %{}, helpers: %{}} = Dummy.new_store()
     end
   end
 
@@ -32,14 +32,14 @@ defmodule BlinkTest do
           |> put_table("string")
         end
 
-        def build(_, _), do: []
+        def table(_, _), do: []
       end
 
-      assert %{seeds: %{:atom => _}} = Dummy.run()
-      assert %{seeds: %{"string" => _}} = Dummy.run()
+      assert %{tables: %{:atom => _}} = Dummy.run()
+      assert %{tables: %{"string" => _}} = Dummy.run()
     end
 
-    test "raises if table name already exists in seeds" do
+    test "raises if table name already exists under :tables" do
       defmodule Dummy do
         use Blink
 
@@ -49,7 +49,7 @@ defmodule BlinkTest do
           |> put_table("table_name")
         end
 
-        def build(_, _), do: []
+        def table(_, _), do: []
       end
 
       assert_raise ArgumentError, fn ->
@@ -69,14 +69,14 @@ defmodule BlinkTest do
           |> put_helper("string")
         end
 
-        def build(_, _, :helpers), do: []
+        def helper(_, _), do: []
       end
 
       assert %{helpers: %{:atom => _}} = Dummy.run()
       assert %{helpers: %{"string" => _}} = Dummy.run()
     end
 
-    test "raises if key already exists in helpers" do
+    test "raises if key already exists under :helpers" do
       defmodule Dummy do
         use Blink
 
@@ -86,7 +86,7 @@ defmodule BlinkTest do
           |> put_helper("key")
         end
 
-        def build(_, _, :helpers), do: []
+        def helper(_, _), do: []
       end
 
       assert_raise ArgumentError, fn ->
