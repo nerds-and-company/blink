@@ -52,8 +52,7 @@ defmodule Blink do
   - **Build**: Add seed data with `add_table/2` and context data with
     `add_context/2`.
 
-  - **Insert**: Persist records to the database with `insert/2` or
-    `insert/3`.
+  - **Insert**: Persist records to the database with `insert/2` or `insert/3`.
 
   ### Example
 
@@ -81,8 +80,8 @@ defmodule Blink do
 
   ## Custom Logic for Inserting Records
 
-  The functions `insert/2` and `insert/3` bulk insert the table records
-  in a `Store` into a Postgres database using Postgres' `COPY` command. You can
+  The functions `insert/2` and `insert/3` bulk insert the table records in a
+  `Store` into a Postgres database using Postgres' `COPY` command. You can
   override the default implementation by defining your own `insert/2` or
   `insert/3` function in your Blink module. Doing so you can support seeding
   databases other than Postgres.
@@ -91,7 +90,8 @@ defmodule Blink do
   alias Blink.Store
 
   @doc """
-  Builds and returns the records to be stored under a table key in the given `Store`.
+  Builds and returns the records to be stored under a table key in the given
+  `Store`.
 
   The callback `table/2` is called by `add_table/2` internally, passing the
   given database table name to `table/2`. Therefore, each table name passed to a
@@ -105,22 +105,23 @@ defmodule Blink do
   @callback table(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
 
   @doc """
-  Builds and returns the data to be stored under a context key in the given `Store`.
+  Builds and returns the data to be stored under a context key in the given
+  `Store`.
 
   The callback `context/2` is called by `add_context/2` internally, passing the
   given context key to `context/2`. Therefore, each key passed to a
   `add_context/2` clause must match a `context/2` clause.
 
-  `insert/2` and `insert/3` ignore the `:context` data and only insert
-  data from `:tables`.
+  `insert/2` and `insert/3` ignore the `:context` data and only insert data from
+  `:tables`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
   @callback context(store :: Store.t(), table_or_context_key :: binary() | atom()) :: [map()]
 
   @doc """
-  Specifies how to perform a bulk insert of the seed data from a `Store`
-  into the given Ecto repository.
+  Specifies how to perform a bulk insert of the seed data from a `Store` into
+  the given Ecto repository.
 
   This callback function is optional, since Blink ships with a default
   implementation for Postgres databases.
