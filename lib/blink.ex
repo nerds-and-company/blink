@@ -14,17 +14,17 @@ defmodule Blink do
   ## Stores
 
   Stores are the central data unit in Blink. A `Store` is a struct that holds
-  the records you want to seed, along with any helper data you need but do not
-  want to insert into the database”.
+  the records you want to seed, along with any context data you need but do not
+  want to insert into the database".
 
-  A `Store` struct contains the keys `tables` and `helpers`:
+  A `Store` struct contains the keys `tables` and `context`:
 
       Blink.Store{
         tables: %{
           "table_name" => [...]
         },
-        helpers: %{
-          "helper_name" => [...]
+        context: %{
+          "context_key" => [...]
         }
       }
 
@@ -36,9 +36,9 @@ defmodule Blink do
   A mapping of table names to lists of records. These records will be persisted
   to the database when `insert_all/2` or `insert_all/3` are called.
 
-  ### Helpers
+  ### Context
 
-  A mapping of arbitrary keys to lists of helper data. Helper data can be
+  A mapping of arbitrary keys to lists of context data. Context data can be
   referenced when setting up your seeds, but will not be inserted into the
   database when calling `insert_all/2` or `insert_all/3`.
 
@@ -48,8 +48,8 @@ defmodule Blink do
 
   - **Create**: Initialize an empty store with `new_store/0`.
 
-  - **Build**: Add seed data with `put_table/2` and helper data with
-    `put_helper/2`.
+  - **Build**: Add seed data with `put_table/2` and context data with
+    `put_context/2`.
 
   - **Insert**: Persist records to the database with `insert_all/2` or
     `insert_all/3`.
@@ -62,7 +62,7 @@ defmodule Blink do
         def call do
           new_store()
           |> put_table("users")
-          |> put_helper("post_ids")
+          |> put_context("post_ids")
           |> insert_all(MyApp.Repo, batch_size: 1_200)
         end
 
@@ -73,7 +73,7 @@ defmodule Blink do
           ]
         end
 
-        def helper(_store, "post_ids") do
+        def context(_store, "post_ids") do
           [1, 2, 3]
         end
       end
@@ -104,18 +104,18 @@ defmodule Blink do
   @callback table(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
 
   @doc """
-  Builds and returns the data to be stored under a helper key in the given `Store`.
+  Builds and returns the data to be stored under a context key in the given `Store`.
 
-  The callback `helper/2` is called by `put_helper/2` internally, passing the
-  given helper name to `helper/2`. Therefore, each helper name passed to a
-  `put_helper/2` clause must match a `helper/2` clause.
+  The callback `context/2` is called by `put_context/2` internally, passing the
+  given context key to `context/2`. Therefore, each context key passed to a
+  `put_context/2` clause must match a `context/2` clause.
 
-  Unlike the data stored under `:tables`, the data in the :helpers key is ignored
+  Unlike the data stored under `:tables`, the data in the :context key is ignored
   when calling `insert_all/2` or `insert_all/3`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback helper(store :: Store.t(), table_or_helper_name :: binary() | atom()) :: [map()]
+  @callback context(store :: Store.t(), table_or_context_key :: binary() | atom()) :: [map()]
 
   @doc """
   Specifies how to perform a bulk insert of the seed data from a `Store`
@@ -128,7 +128,7 @@ defmodule Blink do
   @callback insert_all(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               :ok | :error
 
-  @optional_callbacks [table: 2, helper: 2, insert_all: 2, insert_all: 3]
+  @optional_callbacks [table: 2, context: 2, insert_all: 2, insert_all: 3]
 
   defmacro __using__(_) do
     quote do
@@ -141,7 +141,7 @@ defmodule Blink do
       ## Example
 
           iex> new_store()
-          %Store{tables: %{}, helpers: %{}}
+          %Store{tables: %{}, context: %{}}
       """
       @spec new_store() :: Store.t()
       def new_store do
@@ -156,11 +156,11 @@ defmodule Blink do
         put_in(store.tables[table_name], table(store, table_name))
       end
 
-      @spec put_helper(store :: Store.t(), key :: binary() | atom()) :: Store.t()
-      def put_helper(%Store{} = store, key) when is_binary(key) or is_atom(key) do
-        raise_if_key_exists(store, key, :helpers)
+      @spec put_context(store :: Store.t(), key :: binary() | atom()) :: Store.t()
+      def put_context(%Store{} = store, key) when is_binary(key) or is_atom(key) do
+        raise_if_key_exists(store, key, :context)
 
-        put_in(store.helpers[key], helper(store, key))
+        put_in(store.context[key], context(store, key))
       end
 
       defp raise_if_key_exists(%Store{} = store, key, target) do
@@ -179,18 +179,18 @@ defmodule Blink do
 
       @spec table(
               store :: Store.t(),
-              table_or_helper_name :: binary() | atom()
+              table_or_context_key :: binary() | atom()
             ) :: [map()]
-      def table(store, table_or_helper_name)
+      def table(store, table_or_context_key)
 
       def table(%Store{}, table_name) do
         raise ArgumentError,
               "you must define table/2 clauses that correspond with your calls to put_table/2"
       end
 
-      def helper(%Store{}, helper_name) do
+      def context(%Store{}, context_key) do
         raise ArgumentError,
-              "you must define helper/2 clauses that correspond with your calls to put_helper/2"
+              "you must define context/2 clauses that correspond with your calls to put_context/2"
       end
 
       @doc """
@@ -201,7 +201,7 @@ defmodule Blink do
       behaviour and is configured with a Postgres adapter (e.g.,
       Ecto.Adapters.Postgres).
 
-      Data stored in the Store's helpers is ignored.
+      Data stored in the Store's context is ignored.
       """
       @spec insert_all(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               :ok | {:error, any()}
