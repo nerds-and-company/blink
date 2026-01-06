@@ -35,25 +35,24 @@ defmodule Blink do
   ### Tables
 
   A mapping of table names to lists of records. These records will be persisted
-  to the database when `insert_all/2` or `insert_all/3` are called.
+  to the database when `insert/2` or `insert/3` are called.
 
   ### Context
 
   Stores arbitrary data needed during the seeding process. This data is
   available when building your seeds but is not inserted into the database by
-  `insert_all/2` or `insert_all/3`.
+  `insert/2` or `insert/3`.
 
   ## Basic Usage
 
   To seed your database with Blink, follow these three steps:
 
-  - **Create**: Initialize an empty store with `new_store/0`.
+  - **Create**: Initialize an empty store with `new/0`.
 
-  - **Build**: Add seed data with `put_table/2` and context data with
-    `put_context/2`.
+  - **Build**: Add seed data with `add_table/2` and context data with
+    `add_context/2`.
 
-  - **Insert**: Persist records to the database with `insert_all/2` or
-    `insert_all/3`.
+  - **Insert**: Persist records to the database with `insert/2` or `insert/3`.
 
   ### Example
 
@@ -61,10 +60,10 @@ defmodule Blink do
         use Blink
 
         def call do
-          new_store()
-          |> put_table("users")
-          |> put_context("post_ids")
-          |> insert_all(MyApp.Repo, batch_size: 1_200)
+          new()
+          |> add_table("users")
+          |> add_context("post_ids")
+          |> insert(MyApp.Repo, batch_size: 1_200)
         end
 
         def table(_store, "users") do
@@ -81,55 +80,57 @@ defmodule Blink do
 
   ## Custom Logic for Inserting Records
 
-  The functions `insert_all/2` and `insert_all/3` bulk insert the table records
-  in a `Store` into a Postgres database using Postgres' `COPY` command. You can
-  override the default implementation by defining your own `insert_all/2` or
-  `insert_all/3` function in your Blink module. Doing so you can support seeding
+  The functions `insert/2` and `insert/3` bulk insert the table records in a
+  `Store` into a Postgres database using Postgres' `COPY` command. You can
+  override the default implementation by defining your own `insert/2` or
+  `insert/3` function in your Blink module. Doing so you can support seeding
   databases other than Postgres.
   """
 
   alias Blink.Store
 
   @doc """
-  Builds and returns the records to be stored under a table key in the given `Store`.
+  Builds and returns the records to be stored under a table key in the given
+  `Store`.
 
-  The callback `table/2` is called by `put_table/2` internally, passing the
+  The callback `table/2` is called by `add_table/2` internally, passing the
   given database table name to `table/2`. Therefore, each table name passed to a
-  `put_table/2` clause must match a `table/2` clause.
+  `add_table/2` clause must match a `table/2` clause.
 
   Data added to a store with `table/2` is inserted into the corresponding
-  database table when calling `insert_all/2` or `insert_all/3`.
+  database table when calling `insert/2` or `insert/3`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
   @callback table(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
 
   @doc """
-  Builds and returns the data to be stored under a context key in the given `Store`.
+  Builds and returns the data to be stored under a context key in the given
+  `Store`.
 
-  The callback `context/2` is called by `put_context/2` internally, passing the
+  The callback `context/2` is called by `add_context/2` internally, passing the
   given context key to `context/2`. Therefore, each key passed to a
-  `put_context/2` clause must match a `context/2` clause.
+  `add_context/2` clause must match a `context/2` clause.
 
-  `insert_all/2` and `insert_all/3` ignore the `:context` data and only insert
-  data from `:tables`.
+  `insert/2` and `insert/3` ignore the `:context` data and only insert data from
+  `:tables`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
   @callback context(store :: Store.t(), table_or_context_key :: binary() | atom()) :: [map()]
 
   @doc """
-  Specifies how to perform a bulk insert of the seed data from a `Store`
-  into the given Ecto repository.
+  Specifies how to perform a bulk insert of the seed data from a `Store` into
+  the given Ecto repository.
 
   This callback function is optional, since Blink ships with a default
   implementation for Postgres databases.
   """
-  @callback insert_all(store :: Store.t(), repo :: Ecto.Repo.t()) :: :ok | :error
-  @callback insert_all(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t()) :: :ok | :error
+  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               :ok | :error
 
-  @optional_callbacks [table: 2, context: 2, insert_all: 2, insert_all: 3]
+  @optional_callbacks [table: 2, context: 2, insert: 2, insert: 3]
 
   defmacro __using__(_) do
     quote do
@@ -141,24 +142,24 @@ defmodule Blink do
 
       ## Example
 
-          iex> new_store()
+          iex> new()
           %Store{tables: %{}, context: %{}}
       """
-      @spec new_store() :: Store.t()
-      def new_store do
+      @spec new() :: Store.t()
+      def new do
         %Store{}
       end
 
-      @spec put_table(store :: Store.t(), table_name :: binary() | atom()) :: Store.t()
-      def put_table(%Store{} = store, table_name)
+      @spec add_table(store :: Store.t(), table_name :: binary() | atom()) :: Store.t()
+      def add_table(%Store{} = store, table_name)
           when is_binary(table_name) or is_atom(table_name) do
         raise_if_key_exists(store, table_name, :tables)
 
         put_in(store.tables[table_name], table(store, table_name))
       end
 
-      @spec put_context(store :: Store.t(), key :: binary() | atom()) :: Store.t()
-      def put_context(%Store{} = store, key) when is_binary(key) or is_atom(key) do
+      @spec add_context(store :: Store.t(), key :: binary() | atom()) :: Store.t()
+      def add_context(%Store{} = store, key) when is_binary(key) or is_atom(key) do
         raise_if_key_exists(store, key, :context)
 
         put_in(store.context[key], context(store, key))
@@ -186,12 +187,12 @@ defmodule Blink do
 
       def table(%Store{}, table_name) do
         raise ArgumentError,
-              "you must define table/2 clauses that correspond with your calls to put_table/2"
+              "you must define table/2 clauses that correspond with your calls to add_table/2"
       end
 
       def context(%Store{}, context_key) do
         raise ArgumentError,
-              "you must define context/2 clauses that correspond with your calls to put_context/2"
+              "you must define context/2 clauses that correspond with your calls to add_context/2"
       end
 
       @doc """
@@ -204,9 +205,9 @@ defmodule Blink do
 
       Data stored in the Store's context is ignored.
       """
-      @spec insert_all(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+      @spec insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               :ok | {:error, any()}
-      def insert_all(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
+      def insert(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
         repo.transact(fn ->
           Enum.each(store.tables, fn {table_name, items} ->
             copy_to_table(items, table_name, repo, opts)

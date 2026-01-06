@@ -11,25 +11,25 @@ defmodule BlinkTest do
     end)
   end
 
-  describe "new_store/0" do
+  describe "new/0" do
     test "returns an empty Store" do
       defmodule Dummy do
         use Blink
       end
 
-      assert %Store{tables: %{}, context: %{}} = Dummy.new_store()
+      assert %Store{tables: %{}, context: %{}} = Dummy.new()
     end
   end
 
-  describe "put_table/2" do
+  describe "add_table/2" do
     test "accepts atom and string table names" do
       defmodule Dummy do
         use Blink
 
         def run do
-          new_store()
-          |> put_table(:atom)
-          |> put_table("string")
+          new()
+          |> add_table(:atom)
+          |> add_table("string")
         end
 
         def table(_, _), do: []
@@ -44,9 +44,9 @@ defmodule BlinkTest do
         use Blink
 
         def run do
-          new_store()
-          |> put_table("table_name")
-          |> put_table("table_name")
+          new()
+          |> add_table("table_name")
+          |> add_table("table_name")
         end
 
         def table(_, _), do: []
@@ -58,15 +58,15 @@ defmodule BlinkTest do
     end
   end
 
-  describe "put_context/2" do
+  describe "add_context/2" do
     test "accepts atom and string keys" do
       defmodule Dummy do
         use Blink
 
         def run do
-          new_store()
-          |> put_context(:atom)
-          |> put_context("string")
+          new()
+          |> add_context(:atom)
+          |> add_context("string")
         end
 
         def context(_, _), do: []
@@ -81,9 +81,9 @@ defmodule BlinkTest do
         use Blink
 
         def run do
-          new_store()
-          |> put_context("key")
-          |> put_context("key")
+          new()
+          |> add_context("key")
+          |> add_context("key")
         end
 
         def context(_, _), do: []
