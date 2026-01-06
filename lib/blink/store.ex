@@ -1,12 +1,12 @@
 defmodule Blink.Store do
   @moduledoc """
-  The central data structure passed through the Blink seeding pipeline.
+  The central data structure used throughout the Blink seeding pipeline.
 
-  A `Store` is a container for two kinds of data:
+  A `Store` holds:
 
-    * `:tables` — data that you intend to seed.
-    * `:context` — transient data available to pipeline steps but ignored during
-      seeding.
+    * `:tables` — data that will be inserted into the database.
+    * `:context` — auxiliary data available while constructing the `Store`, and
+      will not be inserted into the database.
   """
 
   defstruct tables: %{}, context: %{}

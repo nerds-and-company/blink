@@ -39,7 +39,7 @@ defmodule BlinkTest do
       assert %{tables: %{"string" => _}} = Dummy.run()
     end
 
-    test "raises if table name already exists under :tables" do
+    test "raises if table name already exists" do
       defmodule Dummy do
         use Blink
 
