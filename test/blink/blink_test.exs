@@ -17,7 +17,7 @@ defmodule BlinkTest do
         use Blink
       end
 
-      assert %Store{tables: %{}, helpers: %{}} = Dummy.new_store()
+      assert %Store{tables: %{}, context: %{}} = Dummy.new_store()
     end
   end
 
@@ -58,35 +58,35 @@ defmodule BlinkTest do
     end
   end
 
-  describe "put_helper/2" do
+  describe "put_context/2" do
     test "accepts atom and string keys" do
       defmodule Dummy do
         use Blink
 
         def run do
           new_store()
-          |> put_helper(:atom)
-          |> put_helper("string")
+          |> put_context(:atom)
+          |> put_context("string")
         end
 
-        def helper(_, _), do: []
+        def context(_, _), do: []
       end
 
-      assert %{helpers: %{:atom => _}} = Dummy.run()
-      assert %{helpers: %{"string" => _}} = Dummy.run()
+      assert %{context: %{:atom => _}} = Dummy.run()
+      assert %{context: %{"string" => _}} = Dummy.run()
     end
 
-    test "raises if key already exists under :helpers" do
+    test "raises if key already exists in context" do
       defmodule Dummy do
         use Blink
 
         def run do
           new_store()
-          |> put_helper("key")
-          |> put_helper("key")
+          |> put_context("key")
+          |> put_context("key")
         end
 
-        def helper(_, _), do: []
+        def context(_, _), do: []
       end
 
       assert_raise ArgumentError, fn ->
