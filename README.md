@@ -1,6 +1,7 @@
 # Blink
 
-**TODO: Add description**
+## TODO
+- [ ] Helper functions for creating records with UUIDs or ascending integer IDs
 
 ## Installation
 
