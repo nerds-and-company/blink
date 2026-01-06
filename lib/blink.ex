@@ -5,7 +5,8 @@ defmodule Blink do
 
   ## Overview
 
-  Blink simplifies database seeding by providing a structured way to build and insert records:
+  Blink simplifies database seeding by providing a structured way to build and
+  insert records:
 
   1. Create an empty `Store`.
   2. Assign the records you want to insert to each database table.
@@ -14,8 +15,8 @@ defmodule Blink do
   ## Stores
 
   Stores are the central data unit in Blink. A `Store` is a struct that holds
-  the records you want to seed, along with any context data you need but do not
-  want to insert into the database".
+  the records you want to seed, along with any contextual data you need during
+  the seeding process but do not want to insert into the database.
 
   A `Store` struct contains the keys `tables` and `context`:
 
@@ -24,7 +25,7 @@ defmodule Blink do
           "table_name" => [...]
         },
         context: %{
-          "context_key" => [...]
+          "key" => [...]
         }
       }
 
@@ -38,13 +39,13 @@ defmodule Blink do
 
   ### Context
 
-  A mapping of arbitrary keys to lists of context data. Context data can be
-  referenced when setting up your seeds, but will not be inserted into the
-  database when calling `insert_all/2` or `insert_all/3`.
+  Stores arbitrary data needed during the seeding process. This data is
+  available when building your seeds but is not inserted into the database by
+  `insert_all/2` or `insert_all/3`.
 
   ## Basic Usage
 
-  The typical workflow involves three steps:
+  To seed your database with Blink, follow these three steps:
 
   - **Create**: Initialize an empty store with `new_store/0`.
 
@@ -107,11 +108,11 @@ defmodule Blink do
   Builds and returns the data to be stored under a context key in the given `Store`.
 
   The callback `context/2` is called by `put_context/2` internally, passing the
-  given context key to `context/2`. Therefore, each context key passed to a
+  given context key to `context/2`. Therefore, each key passed to a
   `put_context/2` clause must match a `context/2` clause.
 
-  Unlike the data stored under `:tables`, the data in the :context key is ignored
-  when calling `insert_all/2` or `insert_all/3`.
+  `insert_all/2` and `insert_all/3` ignore the `:context` data and only insert
+  data from `:tables`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
