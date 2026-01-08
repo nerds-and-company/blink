@@ -1,10 +1,12 @@
 defmodule Blink.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :blink,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -46,9 +48,8 @@ defmodule Blink.MixProject do
 
   defp description do
     """
-    Fast bulk data insertion for Ecto using PostgreSQL's COPY command.
-    Blink provides a clean DSL for seeding databases with dependent tables
-    and shared context.
+    Fast bulk data insertion for projects using Ecto and PostgreSQL.
+    Convenient syntax and easy integration with ExMachina.
     """
   end
 
@@ -59,17 +60,19 @@ defmodule Blink.MixProject do
       licenses: ["MIT"],
       links: %{
         "GitHub" => "https://github.com/nerds-and-company/blink",
-        "Changelog" => "https://github.com/nerds-and-company/blink/blob/main/CHANGELOG.md"
+        "Changelog" => "https://hexdocs.pm/blink/changelog.html"
       },
-      maintainers: ["Nerds & Company"]
+      maintainers: ["Coen Bakker"]
     ]
   end
 
   defp docs do
     [
       main: "readme",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/nerds-and-company/blink",
       extras: ["README.md", "CHANGELOG.md"],
-      source_url: "https://github.com/nerds-and-company/blink"
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
     ]
   end
 end
