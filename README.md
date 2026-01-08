@@ -1,8 +1,5 @@
 # Blink
 
-## TODO
-- [ ] Helper functions for creating records with UUIDs or ascending integer IDs
-
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

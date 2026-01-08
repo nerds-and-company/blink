@@ -9,7 +9,11 @@ defmodule Blink.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      aliases: aliases()
+      aliases: aliases(),
+      description: description(),
+      package: package(),
+      docs: docs(),
+      source_url: "https://github.com/nerds-and-company/blink"
     ]
   end
 
@@ -35,7 +39,37 @@ defmodule Blink.MixProject do
   defp deps do
     [
       {:ecto_sql, "~> 3.0"},
-      {:postgrex, "~> 0.17", only: :test}
+      {:postgrex, "~> 0.17", only: :test},
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
+    ]
+  end
+
+  defp description do
+    """
+    Fast bulk data insertion for Ecto using PostgreSQL's COPY command.
+    Blink provides a clean DSL for seeding databases with dependent tables
+    and shared context.
+    """
+  end
+
+  defp package do
+    [
+      name: "blink",
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/nerds-and-company/blink",
+        "Changelog" => "https://github.com/nerds-and-company/blink/blob/main/CHANGELOG.md"
+      },
+      maintainers: ["Nerds & Company"]
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: ["README.md", "CHANGELOG.md"],
+      source_url: "https://github.com/nerds-and-company/blink"
     ]
   end
 end

@@ -1,5 +1,5 @@
 defmodule BlinkIntegrationTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias BlinkIntegrationTest.Dummy
   alias BlinkTest.Repo
