@@ -41,6 +41,7 @@ defmodule Blink.MixProject do
   defp deps do
     [
       {:ecto_sql, "~> 3.0"},
+      {:nimble_csv, "~> 1.2"},
       {:postgrex, "~> 0.17", only: :test},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false}
     ]

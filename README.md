@@ -118,6 +118,38 @@ defmodule MyApp.Seeder do
 end
 ```
 
+### Loading Data from CSV Files
+
+Blink provides a `from_csv/2` helper function to easily load data from CSV files:
+
+```elixir
+defmodule MyApp.Seeder do
+  use Blink
+
+  def call do
+    new()
+    |> add_table("products")
+    |> add_table("users")
+    |> insert(MyApp.Repo)
+  end
+
+  def table(_store, "products") do
+    Blink.from_csv("priv/seed_data/products.csv")
+  end
+
+  def table(_store, "users") do
+    # With custom transformation for type conversion
+    Blink.from_csv("priv/seed_data/users.csv",
+      transform: fn row ->
+        Map.update!(row, "age", &String.to_integer/1)
+      end
+    )
+  end
+end
+```
+
+By default, the first row is treated as headers. You can also provide explicit headers using the `:headers` option for CSV files without a header row. Column headers become string keys in the maps, and all values are returned as strings. Use the `:transform` option to convert types or transform keys as needed.
+
 ### Custom Batch Size
 
 For the insert operation you can configure the batch size:
@@ -204,6 +236,7 @@ MyApp.Seeder.call()
 - `insert/2` - Inserts all tables into the repository
 - `insert/3` - Inserts with options (e.g., `batch_size`)
 - `copy_to_table/4` - Low-level function for copying data to a single table
+- `from_csv/2` - Reads a CSV file and returns a list of maps for use in `table/2` callbacks
 
 ### Callbacks
 

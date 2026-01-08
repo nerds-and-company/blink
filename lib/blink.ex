@@ -88,6 +88,91 @@ defmodule Blink do
   """
 
   alias Blink.Store
+  alias Blink.CSVParser
+
+  @doc """
+  Reads a CSV file and returns a list of maps suitable for use in `table/2` callbacks.
+
+  By default, the CSV file must have a header row. Each column header will become a
+  string key in the resulting maps. All values are returned as strings.
+
+  ## Parameters
+
+    * `path` - Path to the CSV file (relative or absolute)
+    * `opts` - Keyword list of options:
+      * `:headers` - List of header names to use, or `:infer` to read from first row (default: `:infer`)
+      * `:transform` - Function to transform each row map (default: identity function)
+
+  ## Examples
+
+      # Simple usage with headers in first row
+      def table(_store, "users") do
+        Blink.from_csv("users.csv")
+      end
+
+      # CSV without headers - provide them explicitly
+      def table(_store, "users") do
+        Blink.from_csv("users.csv", headers: ["id", "name", "email"])
+      end
+
+      # With custom transformation for type conversion
+      def table(_store, "users") do
+        Blink.from_csv("users.csv",
+          transform: fn row ->
+            row
+            |> Map.update!("id", &String.to_integer/1)
+            |> Map.update!("age", &String.to_integer/1)
+          end
+        )
+      end
+
+  ## Returns
+
+  A list of maps, where each map represents a row from the CSV file.
+  """
+  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  def from_csv(path, opts \\ []) do
+    raw_rows =
+      path
+      |> File.stream!()
+      |> CSVParser.parse_stream(skip_headers: false)
+      |> Enum.to_list()
+
+    parse_csv_rows(
+      raw_rows,
+      Keyword.get(opts, :headers, :infer),
+      Keyword.get(opts, :transform, & &1)
+    )
+  end
+
+  defp parse_csv_rows([], _, _), do: []
+
+  defp parse_csv_rows(_, _, transform) when not is_function(transform, 1) do
+    raise ArgumentError, ":transform option must be a function that takes 1 argument"
+  end
+
+  defp parse_csv_rows([headers | rows], :infer, transform) do
+    Enum.map(rows, fn row ->
+      headers
+      |> Enum.zip(row)
+      |> Map.new()
+      |> transform.()
+    end)
+  end
+
+  defp parse_csv_rows(rows, headers, transform) when is_list(headers) do
+    Enum.map(rows, fn row ->
+      headers
+      |> Enum.zip(row)
+      |> Map.new()
+      |> transform.()
+    end)
+  end
+
+  defp parse_csv_rows(_rows, invalid_headers, _transform) do
+    raise ArgumentError,
+          ":headers option must be a list of header names or :infer, got: #{inspect(invalid_headers)}"
+  end
 
   @doc """
   Builds and returns the records to be stored under a table key in the given
