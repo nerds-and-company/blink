@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Blink.from_csv/2` function for reading CSV files into maps
+- Support for CSV files with headers (inferred from first row by default)
+- Support for CSV files without headers via `:headers` option
+- `:transform` option for CSV type conversion and data transformation
+
 ## [0.1.1] - 2026-01-08
 
 ### Changed
