@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for CSV files with headers (inferred from first row by default)
 - Support for CSV files without headers via `:headers` option
 - `:transform` option for CSV type conversion and data transformation
+- `Blink.from_json/2` function for reading JSON files into maps
+- Support for JSON arrays of objects with automatic type preservation
+- `:transform` option for JSON data transformation
 
 ## [0.1.1] - 2026-01-08
 

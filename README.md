@@ -150,6 +150,29 @@ end
 
 By default, the first row is treated as headers. You can also provide explicit headers using the `:headers` option for CSV files without a header row. Column headers become string keys in the maps, and all values are returned as strings. Use the `:transform` option to convert types or transform keys as needed.
 
+### Loading Data from JSON Files
+
+Blink also provides a `from_json/2` helper function to load data from JSON files:
+
+```elixir
+defmodule MyApp.Seeder do
+  use Blink
+
+  def call do
+    new()
+    |> add_table("users")
+    |> insert(MyApp.Repo)
+  end
+
+  def table(_store, "users") do
+    # Simple usage
+    Blink.from_json("priv/seed_data/users.json")
+  end
+end
+```
+
+The JSON file must contain an array of objects at the root level. Use the `:transform` option to modify the data as needed.
+
 ### Custom Batch Size
 
 For the insert operation you can configure the batch size:
