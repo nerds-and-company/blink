@@ -139,7 +139,7 @@ Blink works seamlessly with ExMachina for generating realistic test data. ExMach
 **Why combine them?**
 
 - **ExMachina**: Provides factories with realistic, randomized data and handles associations elegantly
-- **Blink**: Provides fast bulk insertion via PostgreSQL's COPY command (100x faster than individual inserts)
+- **Blink**: Provides fast bulk insertion via PostgreSQL's COPY command
 
 **Example with UUIDs:**
 
@@ -214,7 +214,7 @@ MyApp.Seeder.call()
 
 - PostgreSQL database
 - Ecto 3.0 or later
-- Elixir 1.18 or later
+- Elixir 1.14 or later
 
 ## Known Limitations
 
