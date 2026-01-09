@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of Blink
 - Fast bulk data insertion using PostgreSQL's COPY command
-- DSL for defining seeders with `use Blink`
+- Callback-based pattern for defining seeders with `use Blink`
 - Support for multiple tables with insertion order
 - Context sharing between table definitions
 - Configurable batch size for large datasets
