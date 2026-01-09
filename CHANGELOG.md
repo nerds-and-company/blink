@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-09
+
 ### Added
 - `Blink.from_csv/2` function for reading CSV files into maps
 - Support for CSV files with headers (inferred from first row by default)
@@ -15,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Blink.from_json/2` function for reading JSON files into maps
 - Support for JSON arrays of objects with automatic type preservation
 - `:transform` option for JSON data transformation
+- New guide: "Loading Data from Files"
+- New guide: "Using Context"
+- New guide: "Integrating with ExMachina"
+
+### Changed
+- Simplified "Getting Started" guide to focus on core concepts
+- Refactored CSV and JSON functionality into dedicated internal modules
 
 ## [0.1.1] - 2026-01-08
 
@@ -35,4 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.2.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.2.0
+[0.1.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.1.0
