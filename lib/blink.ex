@@ -179,17 +179,20 @@ defmodule Blink do
       defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
       defp key_to_string(key) when is_binary(key), do: key
 
+      @impl true
       @spec table(
               store :: Store.t(),
               table_or_context_key :: binary() | atom()
             ) :: [map()]
       def table(store, table_or_context_key)
 
+      @impl true
       def table(%Store{}, table_name) do
         raise ArgumentError,
               "you must define table/2 clauses that correspond with your calls to add_table/2"
       end
 
+      @impl true
       def context(%Store{}, context_key) do
         raise ArgumentError,
               "you must define context/2 clauses that correspond with your calls to add_context/2"
@@ -205,6 +208,7 @@ defmodule Blink do
 
       Data stored in the Store's context is ignored.
       """
+      @impl true
       @spec insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               :ok | {:error, any()}
       def insert(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
