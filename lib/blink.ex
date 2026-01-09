@@ -90,86 +90,6 @@ defmodule Blink do
   alias Blink.Store
 
   @doc """
-  Reads a CSV file and returns a list of maps suitable for use in `table/2` callbacks.
-
-  By default, the CSV file must have a header row. Each column header will become a
-  string key in the resulting maps. All values are returned as strings.
-
-  ## Parameters
-
-    * `path` - Path to the CSV file (relative or absolute)
-    * `opts` - Keyword list of options:
-      * `:headers` - List of header names to use, or `:infer` to read from first row (default: `:infer`)
-      * `:transform` - Function to transform each row map (default: identity function)
-
-  ## Examples
-
-      # Simple usage with headers in first row
-      def table(_store, "users") do
-        Blink.from_csv("users.csv")
-      end
-
-      # CSV without headers - provide them explicitly
-      def table(_store, "users") do
-        Blink.from_csv("users.csv", headers: ["id", "name", "email"])
-      end
-
-      # With custom transformation for type conversion
-      def table(_store, "users") do
-        Blink.from_csv("users.csv",
-          transform: fn row ->
-            row
-            |> Map.update!("id", &String.to_integer/1)
-            |> Map.update!("age", &String.to_integer/1)
-          end
-        )
-      end
-
-  ## Returns
-
-  A list of maps, where each map represents a row from the CSV file.
-  """
-  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
-  defdelegate from_csv(path, opts \\ []), to: Blink.CSV
-
-  @doc """
-  Reads a JSON file and returns a list of maps suitable for use in `table/2` callbacks.
-
-  The JSON file must contain an array of objects at the root level. Each object
-  becomes a map with string keys.
-
-  ## Parameters
-
-    * `path` - Path to the JSON file
-    * `opts` - Keyword list of options:
-      * `:transform` - Function to transform each row map (default: identity function)
-
-  ## Examples
-
-      # Simple usage
-      def table(_store, "users") do
-        Blink.from_json("users.json")
-      end
-
-      # With custom transformation for type conversion
-      def table(_store, "users") do
-        Blink.from_json("users.json",
-          transform: fn row ->
-            row
-            |> Map.update!("id", &String.to_integer/1)
-            |> Map.update!("age", &String.to_integer/1)
-          end
-        )
-      end
-
-  ## Returns
-
-  A list of maps, where each map represents an object from the JSON array.
-  """
-  @spec from_json(path :: String.t(), opts :: Keyword.t()) :: [map()]
-  defdelegate from_json(path, opts \\ []), to: Blink.JSON
-
-  @doc """
   Builds and returns the records to be stored under a table key in the given
   `Store`.
 
@@ -211,93 +131,6 @@ defmodule Blink do
               :ok | :error
 
   @optional_callbacks [table: 2, context: 2, insert: 2, insert: 3]
-
-  @doc """
-  Copies a list of items into a database table using PostgreSQL's COPY command.
-
-  This function uses PostgreSQL's `COPY FROM STDIN` command for efficient bulk
-  insertion of data. Items are streamed to the database in batches to minimize
-  memory usage.
-
-  ## Parameters
-
-    * `items` - A list of maps where each map represents a row to insert. All maps
-      must have the same keys, which correspond to the table columns.
-    * `table_name` - The name of the table to insert into (string or atom).
-    * `repo` - An Ecto repository module configured with a Postgres adapter.
-    * `opts` - Keyword list of options:
-      * `:batch_size` - Number of rows to send per batch (default: 900)
-
-  ## Returns
-
-    * `{:ok, :empty}` - When the items list is empty
-    * `{:ok, result}` - When the copy operation succeeds
-
-  ## Examples
-
-      iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
-      iex> copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
-      {:ok, _result}
-
-  ## Notes
-
-  The function assumes all items have the same structure. Column names are
-  extracted from the first item in the list. NULL values are represented as `\\N`
-  in the CSV format.
-  """
-  @spec copy_to_table(
-          items :: [map()],
-          table_name :: binary() | atom(),
-          repo :: Ecto.Repo.t(),
-          opts :: Keyword.t()
-        ) :: {:ok, :empty} | {:ok, any()}
-  def copy_to_table(items, table_name, repo, opts \\ [])
-      when is_list(items) and (is_binary(table_name) or is_atom(table_name)) and
-             is_atom(repo) and is_list(opts) do
-    # Skip if no items to insert
-    if Enum.empty?(items) do
-      {:ok, :empty}
-    else
-      # Get columns from the first item
-      columns = items |> List.first() |> Map.keys()
-      columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
-
-      stream =
-        Ecto.Adapters.SQL.stream(
-          repo,
-          """
-          COPY #{key_to_string(table_name)} (#{columns_string})
-          FROM STDIN
-          WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
-          """
-        )
-
-      result =
-        items
-        |> Stream.chunk_every(Keyword.get(opts, :batch_size, 900))
-        |> Enum.into(stream, fn chunk ->
-          chunk
-          |> Enum.map(fn row ->
-            row_iodata =
-              columns
-              |> Enum.map(fn col -> format_csv_value(Map.get(row, col)) end)
-              |> Enum.intersperse("|")
-
-            [row_iodata, "\n"]
-          end)
-          |> IO.iodata_to_binary()
-        end)
-
-      {:ok, result}
-    end
-  end
-
-  defp format_csv_value(nil), do: "\\N"
-  defp format_csv_value(value) when is_binary(value), do: value
-  defp format_csv_value(value), do: to_string(value)
-
-  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
-  defp key_to_string(key) when is_binary(key), do: key
 
   defmacro __using__(_) do
     quote do
@@ -396,4 +229,131 @@ defmodule Blink do
       defoverridable Blink
     end
   end
+
+  @doc """
+  Copies a list of items into a database table using database-specific bulk copy commands.
+
+  This function provides an efficient way to insert large amounts of data by using
+  database-specific bulk copy commands. Items are streamed to the database in batches
+  to minimize memory usage.
+
+  ## Parameters
+
+    * `items` - A list of maps where each map represents a row to insert. All maps
+      must have the same keys, which correspond to the table columns.
+    * `table_name` - The name of the table to insert into (string or atom).
+    * `repo` - An Ecto repository module.
+    * `opts` - Keyword list of options:
+      * `:adapter` - The adapter module to use. Defaults to `Blink.Adapter.Postgres`.
+      * `:batch_size` - Number of rows to send per batch (default: 900)
+
+  ## Returns
+
+    * `{:ok, :empty}` - When the items list is empty
+    * `{:ok, result}` - When the copy operation succeeds
+
+  ## Examples
+
+      iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
+      iex> copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
+      {:ok, _result}
+
+      # Using a specific adapter (future)
+      iex> copy_to_table(items, "users", MyApp.Repo, adapter: Blink.Adapter.MySQL)
+      {:ok, _result}
+
+  ## Notes
+
+  The function assumes all items have the same structure. Column names are
+  extracted from the first item in the list.
+
+  Currently only PostgreSQL is supported via `Blink.Adapter.Postgres`.
+  """
+  @spec copy_to_table(
+          items :: [map()],
+          table_name :: binary() | atom(),
+          repo :: Ecto.Repo.t(),
+          opts :: Keyword.t()
+        ) :: {:ok, :empty} | {:ok, any()}
+  defdelegate copy_to_table(items, table_name, repo, opts \\ []), to: Blink.Adapter
+
+  @doc """
+  Reads a CSV file and returns a list of maps suitable for use in `table/2` callbacks.
+
+  By default, the CSV file must have a header row. Each column header will become a
+  string key in the resulting maps. All values are returned as strings.
+
+  ## Parameters
+
+    * `path` - Path to the CSV file (relative or absolute)
+    * `opts` - Keyword list of options:
+      * `:headers` - List of header names to use, or `:infer` to read from first row (default: `:infer`)
+      * `:transform` - Function to transform each row map (default: identity function)
+
+  ## Examples
+
+      # Simple usage with headers in first row
+      def table(_store, "users") do
+        Blink.from_csv("users.csv")
+      end
+
+      # CSV without headers - provide them explicitly
+      def table(_store, "users") do
+        Blink.from_csv("users.csv", headers: ["id", "name", "email"])
+      end
+
+      # With custom transformation for type conversion
+      def table(_store, "users") do
+        Blink.from_csv("users.csv",
+          transform: fn row ->
+            row
+            |> Map.update!("id", &String.to_integer/1)
+            |> Map.update!("age", &String.to_integer/1)
+          end
+        )
+      end
+
+  ## Returns
+
+  A list of maps, where each map represents a row from the CSV file.
+  """
+  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  defdelegate from_csv(path, opts \\ []), to: Blink.CSV
+
+  @doc """
+  Reads a JSON file and returns a list of maps suitable for use in `table/2` callbacks.
+
+  The JSON file must contain an array of objects at the root level. Each object
+  becomes a map with string keys.
+
+  ## Parameters
+
+    * `path` - Path to the JSON file
+    * `opts` - Keyword list of options:
+      * `:transform` - Function to transform each row map (default: identity function)
+
+  ## Examples
+
+      # Simple usage
+      def table(_store, "users") do
+        Blink.from_json("users.json")
+      end
+
+      # With custom transformation for type conversion
+      def table(_store, "users") do
+        Blink.from_json("users.json",
+          transform: fn row ->
+            row
+            |> Map.update!("id", &String.to_integer/1)
+            |> Map.update!("age", &String.to_integer/1)
+          end
+        )
+      end
+
+  ## Returns
+
+  A list of maps, where each map represents an object from the JSON array.
+  """
+  @spec from_json(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  defdelegate from_json(path, opts \\ []), to: Blink.JSON
 end
