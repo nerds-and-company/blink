@@ -76,7 +76,11 @@ defmodule Blink.MixProject do
       extras: [
         "README.md",
         "guides/getting_started.md",
-        "CHANGELOG.md"
+        "guides/using_context.md",
+        "guides/loading_data_from_files.md",
+        "guides/integrating_with_ex_machina.md",
+        "CHANGELOG.md",
+        "LICENSE"
       ],
       groups_for_extras: [
         Guides: ~r/guides\/.?/
