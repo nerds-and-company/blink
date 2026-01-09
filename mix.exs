@@ -58,7 +58,7 @@ defmodule Blink.MixProject do
   defp package do
     [
       name: "blink",
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
+      files: ~w(lib guides .formatter.exs mix.exs README.md LICENSE CHANGELOG.md),
       licenses: ["MIT"],
       links: %{
         "GitHub" => "https://github.com/nerds-and-company/blink",
@@ -73,7 +73,14 @@ defmodule Blink.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: "https://github.com/nerds-and-company/blink",
-      extras: ["README.md", "CHANGELOG.md"],
+      extras: [
+        "README.md",
+        "guides/getting_started.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        Guides: ~r/guides\/.?/
+      ],
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
     ]
   end

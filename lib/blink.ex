@@ -88,7 +88,6 @@ defmodule Blink do
   """
 
   alias Blink.Store
-  alias Blink.CSVParser
 
   @doc """
   Reads a CSV file and returns a list of maps suitable for use in `table/2` callbacks.
@@ -131,48 +130,7 @@ defmodule Blink do
   A list of maps, where each map represents a row from the CSV file.
   """
   @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
-  def from_csv(path, opts \\ []) do
-    raw_rows =
-      path
-      |> File.stream!()
-      |> CSVParser.parse_stream(skip_headers: false)
-      |> Enum.to_list()
-
-    parse_csv_rows(
-      raw_rows,
-      Keyword.get(opts, :headers, :infer),
-      Keyword.get(opts, :transform, & &1)
-    )
-  end
-
-  defp parse_csv_rows([], _, _), do: []
-
-  defp parse_csv_rows(_, _, transform) when not is_function(transform, 1) do
-    raise ArgumentError, ":transform option must be a function that takes 1 argument"
-  end
-
-  defp parse_csv_rows([headers | rows], :infer, transform) do
-    Enum.map(rows, fn row ->
-      headers
-      |> Enum.zip(row)
-      |> Map.new()
-      |> transform.()
-    end)
-  end
-
-  defp parse_csv_rows(rows, headers, transform) when is_list(headers) do
-    Enum.map(rows, fn row ->
-      headers
-      |> Enum.zip(row)
-      |> Map.new()
-      |> transform.()
-    end)
-  end
-
-  defp parse_csv_rows(_rows, invalid_headers, _transform) do
-    raise ArgumentError,
-          ":headers option must be a list of header names or :infer, got: #{inspect(invalid_headers)}"
-  end
+  defdelegate from_csv(path, opts \\ []), to: Blink.CSV
 
   @doc """
   Reads a JSON file and returns a list of maps suitable for use in `table/2` callbacks.
@@ -209,37 +167,7 @@ defmodule Blink do
   A list of maps, where each map represents an object from the JSON array.
   """
   @spec from_json(path :: String.t(), opts :: Keyword.t()) :: [map()]
-  def from_json(path, opts \\ []) do
-    raw_items =
-      path
-      |> File.read!()
-      |> Jason.decode!()
-
-    parse_json_items(raw_items, Keyword.get(opts, :transform, & &1))
-  end
-
-  defp parse_json_items(_, transform) when not is_function(transform, 1) do
-    raise ArgumentError, ":transform option must be a function that takes 1 argument"
-  end
-
-  defp parse_json_items(items, transform) when is_list(items) do
-    validate_json_items(items)
-    Enum.map(items, transform)
-  end
-
-  defp parse_json_items(other, _transform) do
-    raise ArgumentError,
-          "JSON file must contain an array at root level, found: #{inspect(other)}"
-  end
-
-  defp validate_json_items(items) do
-    Enum.each(items, fn item ->
-      if not is_map(item) do
-        raise ArgumentError,
-              "JSON file must contain an array of objects, found: #{inspect(item)}"
-      end
-    end)
-  end
+  defdelegate from_json(path, opts \\ []), to: Blink.JSON
 
   @doc """
   Builds and returns the records to be stored under a table key in the given
