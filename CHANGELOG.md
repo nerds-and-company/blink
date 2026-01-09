@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Moved `copy_to_table/4` from the `__using__` macro to a public module function. This improves documentation visibility and allows direct usage via `Blink.copy_to_table/4`. Users who were calling `copy_to_table/4` directly within their Blink modules should now call `Blink.copy_to_table/4` instead.
+
 ## [0.2.0] - 2026-01-09
 
 ### Added
