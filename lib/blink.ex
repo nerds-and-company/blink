@@ -90,6 +90,194 @@ defmodule Blink do
   alias Blink.Store
 
   @doc """
+  Builds and returns the records to be stored under a table key in the given
+  `Store`.
+
+  The callback `table/2` is called by `add_table/2` internally, passing the
+  given database table name to `table/2`. Therefore, each table name passed to a
+  `add_table/2` clause must match a `table/2` clause.
+
+  Data added to a store with `table/2` is inserted into the corresponding
+  database table when calling `insert/2` or `insert/3`.
+
+  When the callback function is missing, an `ArgumentError` is raised.
+  """
+  @callback table(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
+
+  @doc """
+  Builds and returns the data to be stored under a context key in the given
+  `Store`.
+
+  The callback `context/2` is called by `add_context/2` internally, passing the
+  given context key to `context/2`. Therefore, each key passed to a
+  `add_context/2` clause must match a `context/2` clause.
+
+  `insert/2` and `insert/3` ignore the `:context` data and only insert data from
+  `:tables`.
+
+  When the callback function is missing, an `ArgumentError` is raised.
+  """
+  @callback context(store :: Store.t(), key :: binary() | atom()) :: [map()]
+
+  @doc """
+  Specifies how to perform a bulk insert of the seed data from a `Store` into
+  the given Ecto repository.
+
+  This callback function is optional, since Blink ships with a default
+  implementation for Postgres databases.
+  """
+  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t()) :: {:ok, any()} | {:error, any()}
+  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+              {:ok, any()} | {:error, any()}
+
+  @optional_callbacks [table: 2, context: 2, insert: 2, insert: 3]
+
+  defmacro __using__(_) do
+    quote do
+      @behaviour Blink
+      @default_batch_size 900
+
+      @doc """
+      Creates an empty Store.
+
+      ## Example
+
+          iex> new()
+          %Store{tables: %{}, context: %{}}
+      """
+      @spec new() :: Store.t()
+      def new do
+        %Store{}
+      end
+
+      @spec add_table(store :: Store.t(), table_name :: binary() | atom()) :: Store.t()
+      def add_table(%Store{} = store, table_name)
+          when is_binary(table_name) or is_atom(table_name) do
+        raise_if_key_exists(store, table_name, :tables)
+
+        put_in(store.tables[table_name], table(store, table_name))
+      end
+
+      @spec add_context(store :: Store.t(), key :: binary() | atom()) :: Store.t()
+      def add_context(%Store{} = store, key) when is_binary(key) or is_atom(key) do
+        raise_if_key_exists(store, key, :context)
+
+        put_in(store.context[key], context(store, key))
+      end
+
+      defp raise_if_key_exists(%Store{} = store, key, target) do
+        keys_as_strings =
+          store[target]
+          |> Map.keys()
+          |> Enum.map(&key_to_string/1)
+
+        if key_to_string(key) in keys_as_strings do
+          raise ArgumentError, "key already exists in `#{inspect(target)}` of Store: #{key}"
+        end
+      end
+
+      defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
+      defp key_to_string(key) when is_binary(key), do: key
+
+      @impl true
+      @spec table(
+              store :: Store.t(),
+              table_name :: binary() | atom()
+            ) :: [map()]
+      def table(store, table_name)
+
+      @impl true
+      def table(%Store{}, table_name) do
+        raise ArgumentError,
+              "you must define table/2 clauses that correspond with your calls to add_table/2"
+      end
+
+      @impl true
+      def context(%Store{}, key) do
+        raise ArgumentError,
+              "you must define context/2 clauses that correspond with your calls to add_context/2"
+      end
+
+      @doc """
+      Inserts all table records from a Store's into the given repository.
+      Iterates over the tables in order when seeding the database.
+
+      The repo parameter must be a module that implements the Ecto.Repo
+      behaviour and is configured with a Postgres adapter (e.g.,
+      Ecto.Adapters.Postgres).
+
+      Data stored in the Store's context is ignored.
+      """
+      @impl true
+      @spec insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+              {:ok, any()} | {:error, any()}
+      def insert(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
+        repo.transact(fn ->
+          Enum.each(store.tables, fn {table_name, items} ->
+            case Blink.copy_to_table(items, table_name, repo, opts) do
+              {:ok, _} -> :ok
+              {:error, reason} -> raise reason
+            end
+          end)
+
+          {:ok, :inserted}
+        end)
+      rescue
+        e -> {:error, e}
+      end
+
+      defoverridable Blink
+    end
+  end
+
+  @doc """
+  Copies a list of items into a database table using database-specific bulk copy commands.
+
+  This function provides an efficient way to insert large amounts of data by using
+  database-specific bulk copy commands. Items are streamed to the database in batches
+  to minimize memory usage.
+
+  ## Parameters
+
+    * `items` - A list of maps where each map represents a row to insert. All maps
+      must have the same keys, which correspond to the table columns.
+    * `table_name` - The name of the table to insert into (string or atom).
+    * `repo` - An Ecto repository module.
+    * `opts` - Keyword list of options:
+      * `:adapter` - The adapter module to use. Defaults to `Blink.Adapter.Postgres`.
+      * `:batch_size` - Number of rows to send per batch (default: 900)
+
+  ## Returns
+
+    * `{:ok, result}` - When the copy operation succeeds
+    * `{:error, reason}` - When the copy operation fails
+
+  ## Examples
+
+      iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
+      iex> copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
+      {:ok, _result}
+
+      # Using a specific adapter (future)
+      iex> copy_to_table(items, "users", MyApp.Repo, adapter: Blink.Adapter.MySQL)
+      {:ok, _result}
+
+  ## Notes
+
+  The function assumes all items have the same structure. Column names are
+  extracted from the first item in the list.
+
+  Currently only PostgreSQL is supported via `Blink.Adapter.Postgres`.
+  """
+  @spec copy_to_table(
+          items :: [map()],
+          table_name :: binary() | atom(),
+          repo :: Ecto.Repo.t(),
+          opts :: Keyword.t()
+        ) :: {:ok, any()} | {:error, any()}
+  defdelegate copy_to_table(items, table_name, repo, opts \\ []), to: Blink.Adapter
+
+  @doc """
   Reads a CSV file and returns a list of maps suitable for use in `table/2` callbacks.
 
   By default, the CSV file must have a header row. Each column header will become a
@@ -168,232 +356,4 @@ defmodule Blink do
   """
   @spec from_json(path :: String.t(), opts :: Keyword.t()) :: [map()]
   defdelegate from_json(path, opts \\ []), to: Blink.JSON
-
-  @doc """
-  Builds and returns the records to be stored under a table key in the given
-  `Store`.
-
-  The callback `table/2` is called by `add_table/2` internally, passing the
-  given database table name to `table/2`. Therefore, each table name passed to a
-  `add_table/2` clause must match a `table/2` clause.
-
-  Data added to a store with `table/2` is inserted into the corresponding
-  database table when calling `insert/2` or `insert/3`.
-
-  When the callback function is missing, an `ArgumentError` is raised.
-  """
-  @callback table(store :: Store.t(), table_name :: binary() | atom()) :: [map()]
-
-  @doc """
-  Builds and returns the data to be stored under a context key in the given
-  `Store`.
-
-  The callback `context/2` is called by `add_context/2` internally, passing the
-  given context key to `context/2`. Therefore, each key passed to a
-  `add_context/2` clause must match a `context/2` clause.
-
-  `insert/2` and `insert/3` ignore the `:context` data and only insert data from
-  `:tables`.
-
-  When the callback function is missing, an `ArgumentError` is raised.
-  """
-  @callback context(store :: Store.t(), table_or_context_key :: binary() | atom()) :: [map()]
-
-  @doc """
-  Specifies how to perform a bulk insert of the seed data from a `Store` into
-  the given Ecto repository.
-
-  This callback function is optional, since Blink ships with a default
-  implementation for Postgres databases.
-  """
-  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t()) :: :ok | :error
-  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
-              :ok | :error
-
-  @optional_callbacks [table: 2, context: 2, insert: 2, insert: 3]
-
-  @doc """
-  Copies a list of items into a database table using PostgreSQL's COPY command.
-
-  This function uses PostgreSQL's `COPY FROM STDIN` command for efficient bulk
-  insertion of data. Items are streamed to the database in batches to minimize
-  memory usage.
-
-  ## Parameters
-
-    * `items` - A list of maps where each map represents a row to insert. All maps
-      must have the same keys, which correspond to the table columns.
-    * `table_name` - The name of the table to insert into (string or atom).
-    * `repo` - An Ecto repository module configured with a Postgres adapter.
-    * `opts` - Keyword list of options:
-      * `:batch_size` - Number of rows to send per batch (default: 900)
-
-  ## Returns
-
-    * `{:ok, :empty}` - When the items list is empty
-    * `{:ok, result}` - When the copy operation succeeds
-
-  ## Examples
-
-      iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
-      iex> copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
-      {:ok, _result}
-
-  ## Notes
-
-  The function assumes all items have the same structure. Column names are
-  extracted from the first item in the list. NULL values are represented as `\\N`
-  in the CSV format.
-  """
-  @spec copy_to_table(
-          items :: [map()],
-          table_name :: binary() | atom(),
-          repo :: Ecto.Repo.t(),
-          opts :: Keyword.t()
-        ) :: {:ok, :empty} | {:ok, any()}
-  def copy_to_table(items, table_name, repo, opts \\ [])
-      when is_list(items) and (is_binary(table_name) or is_atom(table_name)) and
-             is_atom(repo) and is_list(opts) do
-    # Skip if no items to insert
-    if Enum.empty?(items) do
-      {:ok, :empty}
-    else
-      # Get columns from the first item
-      columns = items |> List.first() |> Map.keys()
-      columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
-
-      stream =
-        Ecto.Adapters.SQL.stream(
-          repo,
-          """
-          COPY #{key_to_string(table_name)} (#{columns_string})
-          FROM STDIN
-          WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
-          """
-        )
-
-      result =
-        items
-        |> Stream.chunk_every(Keyword.get(opts, :batch_size, 900))
-        |> Enum.into(stream, fn chunk ->
-          chunk
-          |> Enum.map(fn row ->
-            row_iodata =
-              columns
-              |> Enum.map(fn col -> format_csv_value(Map.get(row, col)) end)
-              |> Enum.intersperse("|")
-
-            [row_iodata, "\n"]
-          end)
-          |> IO.iodata_to_binary()
-        end)
-
-      {:ok, result}
-    end
-  end
-
-  defp format_csv_value(nil), do: "\\N"
-  defp format_csv_value(value) when is_binary(value), do: value
-  defp format_csv_value(value), do: to_string(value)
-
-  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
-  defp key_to_string(key) when is_binary(key), do: key
-
-  defmacro __using__(_) do
-    quote do
-      @behaviour Blink
-      @default_batch_size 900
-
-      @doc """
-      Creates an empty Store.
-
-      ## Example
-
-          iex> new()
-          %Store{tables: %{}, context: %{}}
-      """
-      @spec new() :: Store.t()
-      def new do
-        %Store{}
-      end
-
-      @spec add_table(store :: Store.t(), table_name :: binary() | atom()) :: Store.t()
-      def add_table(%Store{} = store, table_name)
-          when is_binary(table_name) or is_atom(table_name) do
-        raise_if_key_exists(store, table_name, :tables)
-
-        put_in(store.tables[table_name], table(store, table_name))
-      end
-
-      @spec add_context(store :: Store.t(), key :: binary() | atom()) :: Store.t()
-      def add_context(%Store{} = store, key) when is_binary(key) or is_atom(key) do
-        raise_if_key_exists(store, key, :context)
-
-        put_in(store.context[key], context(store, key))
-      end
-
-      defp raise_if_key_exists(%Store{} = store, key, target) do
-        keys_as_strings =
-          store[target]
-          |> Map.keys()
-          |> Enum.map(&key_to_string/1)
-
-        if key_to_string(key) in keys_as_strings do
-          raise ArgumentError, "key already exists in `#{inspect(target)}` of Store: #{key}"
-        end
-      end
-
-      defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
-      defp key_to_string(key) when is_binary(key), do: key
-
-      @spec table(
-              store :: Store.t(),
-              table_or_context_key :: binary() | atom()
-            ) :: [map()]
-      def table(store, table_or_context_key)
-
-      def table(%Store{}, table_name) do
-        raise ArgumentError,
-              "you must define table/2 clauses that correspond with your calls to add_table/2"
-      end
-
-      def context(%Store{}, context_key) do
-        raise ArgumentError,
-              "you must define context/2 clauses that correspond with your calls to add_context/2"
-      end
-
-      @doc """
-      Inserts all table records from a Store's into the given repository.
-      Iterates over the tables in order when seeding the database.
-
-      The repo parameter must be a module that implements the Ecto.Repo
-      behaviour and is configured with a Postgres adapter (e.g.,
-      Ecto.Adapters.Postgres).
-
-      Data stored in the Store's context is ignored.
-      """
-      @spec insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
-              :ok | {:error, any()}
-      def insert(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
-        repo.transact(fn ->
-          Enum.each(store.tables, fn {table_name, items} ->
-            case Blink.copy_to_table(items, table_name, repo, opts) do
-              {:ok, _} -> :ok
-              {:error, reason} -> raise reason
-            end
-          end)
-
-          {:ok, :inserted}
-        end)
-        |> case do
-          {:ok, _} -> :ok
-          {:error, reason} -> {:error, reason}
-        end
-      rescue
-        e -> {:error, e}
-      end
-
-      defoverridable Blink
-    end
-  end
 end

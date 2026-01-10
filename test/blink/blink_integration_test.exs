@@ -37,7 +37,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify data was inserted
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
@@ -71,7 +71,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify users
       users = Repo.all(from(u in "users", select: u.name))
@@ -99,7 +99,7 @@ defmodule BlinkIntegrationTest do
         def table(_store, "users"), do: []
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify no data was inserted
       users = Repo.all(from(u in "users", select: count()))
@@ -130,7 +130,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify posts were created using context
       posts = Repo.all(from(p in "posts", select: {p.id, p.title}, order_by: p.id))
@@ -184,7 +184,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify only users table has data
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}))
@@ -212,7 +212,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify data was inserted with batch_size option
       users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
@@ -241,7 +241,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert :ok = Dummy.call()
+      assert {:ok, _} = Dummy.call()
 
       # Verify all data was inserted
       user_count = Repo.one(from(u in "users", select: count()))
