@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **BREAKING**: Changed return type of `insert/2` and `insert/3` from `:ok | {:error, any()}` to `{:ok, any()} | {:error, any()}`.
 - **BREAKING**: Moved `copy_to_table/4` from the `__using__` macro to a public module function.
+- **BREAKING**: `copy_to_table/4` now raises `ArgumentError` when the adapter module doesn't define `call/4`.
 - Refactored copy implementation into adapter pattern with `Blink.Adapter.Postgres` module for better code organization and to support future database adapters (e.g., MySQL)
 - Added `:adapter` option to `copy_to_table/4` to allow specifying a custom adapter module. Defaults to `Blink.Adapter.Postgres`.
 
