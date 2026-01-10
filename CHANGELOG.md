@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New guide: "Custom Adapters" - documentation for creating custom database adapters
 
 ### Changed
-- **BREAKING**: Changed return type of `insert/2` and `insert/3` from `:ok | {:error, any()}` to `{:ok, any()} | {:error, any()}`. Users who pattern match on the return value should update from `assert :ok = MySeeder.call()` to `assert {:ok, _} = MySeeder.call()`.
-- **BREAKING**: Moved `copy_to_table/4` from the `__using__` macro to a public module function. This improves documentation visibility and allows direct usage via `Blink.copy_to_table/4`. Users who were calling `copy_to_table/4` directly within their Blink modules should now call `Blink.copy_to_table/4` instead.
+- **BREAKING**: Changed return type of `insert/2` and `insert/3` from `:ok | {:error, any()}` to `{:ok, any()} | {:error, any()}`.
+- **BREAKING**: Moved `copy_to_table/4` from the `__using__` macro to a public module function.
 - Refactored copy implementation into adapter pattern with `Blink.Adapter.Postgres` module for better code organization and to support future database adapters (e.g., MySQL)
 - Added `:adapter` option to `copy_to_table/4` to allow specifying a custom adapter module. Defaults to `Blink.Adapter.Postgres`.
 
