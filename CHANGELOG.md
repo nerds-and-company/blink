@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - New guide: "Custom Adapters" - documentation for creating custom database adapters
+- Added public `Blink.Store.key()` type for table and context keys
+- Added public `is_key/1` guard for validating table and context keys
 
 ### Changed
 - **BREAKING**: Changed return type of `insert/2` and `insert/3` from `:ok | {:error, any()}` to `{:ok, any()} | {:error, any()}`.
@@ -16,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: `copy_to_table/4` now raises `ArgumentError` when the adapter module doesn't define `call/4`.
 - Refactored copy implementation into adapter pattern with `Blink.Adapter.Postgres` module for better code organization and to support future database adapters (e.g., MySQL)
 - Added `:adapter` option to `copy_to_table/4` to allow specifying a custom adapter module. Defaults to `Blink.Adapter.Postgres`.
+- Refactored store manipulation logic from `__using__` macro into `Blink.Store` module for better code organization
+- Replaced `binary() | atom()` type annotations with `Blink.Store.key()` throughout the codebase for consistency
 
 ## [0.2.0] - 2026-01-09
 

@@ -23,10 +23,9 @@ defmodule Blink.Adapter.Postgres do
   """
   @behaviour Blink.Adapter
 
-  @default_batch_size 900
+  import Blink.Store, only: [is_key: 1]
 
-  defguardp is_table_name(table_name)
-            when is_binary(table_name) or is_atom(table_name)
+  @default_batch_size 900
 
   @doc """
   Executes a bulk copy operation using PostgreSQL's COPY command.
@@ -36,7 +35,7 @@ defmodule Blink.Adapter.Postgres do
   @impl true
   @spec call(
           items :: [map()],
-          table_name :: binary() | atom(),
+          table_name :: Blink.Store.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, any()}
@@ -79,13 +78,12 @@ defmodule Blink.Adapter.Postgres do
   """
   @spec copy_to_table(
           items :: [map()],
-          table_name :: binary() | atom(),
+          table_name :: Blink.Store.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, any()}
   def copy_to_table(items, table_name, repo, opts \\ [])
-      when is_list(items) and is_table_name(table_name) and is_atom(repo) and
-             is_list(opts) do
+      when is_list(items) and is_key(table_name) and is_atom(repo) and is_list(opts) do
     if Enum.empty?(items) do
       {:ok, :empty}
     else
