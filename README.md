@@ -215,7 +215,7 @@ end
 
 | Requirement | Version |
 |-------------|---------|
-| Elixir | 1.14+ |
+| Elixir | 1.15+ |
 | Ecto | 3.0+ |
 | PostgreSQL | Any supported version |
 

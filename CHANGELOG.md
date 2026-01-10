@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `:adapter` option to `copy_to_table/4` to allow specifying a custom adapter module. Defaults to `Blink.Adapter.Postgres`.
 - Refactored store manipulation logic from `__using__` macro into `Blink.Store` module for better code organization
 - Replaced `binary() | atom()` type annotations with `Blink.Store.key()` throughout the codebase for consistency
+- Increased Elixir requirement from 1.14 to 1.15 for compatibility with NimbleCSV
 
 ## [0.2.0] - 2026-01-09
 
