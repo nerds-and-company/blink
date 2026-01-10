@@ -38,7 +38,6 @@ defmodule Blink.Adapter do
 
   ## Returns
 
-    * `{:ok, :empty}` - When the items list is empty
     * `{:ok, result}` - When the copy operation succeeds
     * `{:error, reason}` - When the copy operation fails
   """
@@ -47,7 +46,7 @@ defmodule Blink.Adapter do
               table_name :: binary() | atom(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
-            ) :: {:ok, :empty} | {:ok, any()} | {:error, any()}
+            ) :: {:ok, any()} | {:error, any()}
 
   @doc """
   Copies a list of items into a database table using the appropriate database adapter.
@@ -59,7 +58,7 @@ defmodule Blink.Adapter do
           table_name :: binary() | atom(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, :empty} | {:ok, any()}
+        ) :: {:ok, any()} | {:error, any()}
   def copy_to_table(items, table_name, repo, opts \\ []) do
     adapter = Keyword.get(opts, :adapter, Blink.Adapter.Postgres)
     adapter.call(items, table_name, repo, opts)

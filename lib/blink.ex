@@ -253,8 +253,8 @@ defmodule Blink do
 
   ## Returns
 
-    * `{:ok, :empty}` - When the items list is empty
     * `{:ok, result}` - When the copy operation succeeds
+    * `{:error, reason}` - When the copy operation fails
 
   ## Examples
 
@@ -278,7 +278,7 @@ defmodule Blink do
           table_name :: binary() | atom(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, :empty} | {:ok, any()}
+        ) :: {:ok, any()} | {:error, any()}
   defdelegate copy_to_table(items, table_name, repo, opts \\ []), to: Blink.Adapter
 
   @doc """

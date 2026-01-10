@@ -1,5 +1,26 @@
 defmodule Blink.Adapter.Postgres do
-  @moduledoc false
+  @moduledoc """
+  PostgreSQL adapter for Blink bulk copy operations.
+
+  This adapter uses PostgreSQL's `COPY FROM STDIN` command for efficient bulk
+  insertion of data. It is the default adapter used by Blink.
+
+  ## Usage
+
+  This adapter is used automatically by default:
+
+      Blink.copy_to_table(items, "users", MyApp.Repo)
+
+  Or explicitly:
+
+      Blink.copy_to_table(items, "users", MyApp.Repo, adapter: Blink.Adapter.Postgres)
+
+  ## Implementation
+
+  The adapter implements the `Blink.Adapter` behavior by streaming data to
+  PostgreSQL in CSV format using the pipe delimiter. It batches data to minimize
+  memory usage while maintaining high performance.
+  """
   @behaviour Blink.Adapter
 
   @default_batch_size 900
@@ -18,7 +39,7 @@ defmodule Blink.Adapter.Postgres do
           table_name :: binary() | atom(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, :empty} | {:ok, any()}
+        ) :: {:ok, any()} | {:error, any()}
   def call(items, table_name, repo, opts \\ []) do
     copy_to_table(items, table_name, repo, opts)
   end
@@ -61,11 +82,10 @@ defmodule Blink.Adapter.Postgres do
           table_name :: binary() | atom(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, :empty} | {:ok, any()}
+        ) :: {:ok, any()} | {:error, any()}
   def copy_to_table(items, table_name, repo, opts \\ [])
       when is_list(items) and is_table_name(table_name) and is_atom(repo) and
              is_list(opts) do
-    # Skip if no items to insert
     if Enum.empty?(items) do
       {:ok, :empty}
     else
