@@ -22,9 +22,7 @@ The `call/4` function receives:
 - `repo` - Ecto repository module
 - `opts` - Options like `:batch_size`
 
-## Creating a Custom Adapter
-
-Here's a minimal adapter implementation:
+Example:
 
 ```elixir
 defmodule MyApp.Adapters.MySQL do
