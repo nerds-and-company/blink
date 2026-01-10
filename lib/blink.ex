@@ -126,9 +126,9 @@ defmodule Blink do
   This callback function is optional, since Blink ships with a default
   implementation for Postgres databases.
   """
-  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t()) :: :ok | :error
+  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t()) :: {:ok, any()} | {:error, any()}
   @callback insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
-              :ok | :error
+              {:ok, any()} | {:error, any()}
 
   @optional_callbacks [table: 2, context: 2, insert: 2, insert: 3]
 
@@ -210,7 +210,7 @@ defmodule Blink do
       """
       @impl true
       @spec insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
-              :ok | {:error, any()}
+              {:ok, any()} | {:error, any()}
       def insert(%Store{} = store, repo, opts \\ []) when is_atom(repo) do
         repo.transact(fn ->
           Enum.each(store.tables, fn {table_name, items} ->
@@ -222,10 +222,6 @@ defmodule Blink do
 
           {:ok, :inserted}
         end)
-        |> case do
-          {:ok, _} -> :ok
-          {:error, reason} -> {:error, reason}
-        end
       rescue
         e -> {:error, e}
       end
