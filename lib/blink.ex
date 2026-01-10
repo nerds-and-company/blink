@@ -117,7 +117,7 @@ defmodule Blink do
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback context(store :: Store.t(), table_or_context_key :: binary() | atom()) :: [map()]
+  @callback context(store :: Store.t(), key :: binary() | atom()) :: [map()]
 
   @doc """
   Specifies how to perform a bulk insert of the seed data from a `Store` into
@@ -182,9 +182,9 @@ defmodule Blink do
       @impl true
       @spec table(
               store :: Store.t(),
-              table_or_context_key :: binary() | atom()
+              table_name :: binary() | atom()
             ) :: [map()]
-      def table(store, table_or_context_key)
+      def table(store, table_name)
 
       @impl true
       def table(%Store{}, table_name) do
@@ -193,7 +193,7 @@ defmodule Blink do
       end
 
       @impl true
-      def context(%Store{}, context_key) do
+      def context(%Store{}, key) do
         raise ArgumentError,
               "you must define context/2 clauses that correspond with your calls to add_context/2"
       end
