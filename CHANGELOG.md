@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1] - 2026-01-11
+
+### Added
+- `use Blink` now imports `new/0`, `from_csv/1`, `from_csv/2`, `from_json/1`, `from_json/2`, `copy_to_table/3`, and `copy_to_table/4` for convenience
+
+### Changed
+- Moved batch size documentation to its own guide
+- Simplified the using_context guide
+
 ## [0.4.0] - 2026-01-11
 
 ### Added
@@ -16,4 +25,5 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.4.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.1
 [0.4.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.0
