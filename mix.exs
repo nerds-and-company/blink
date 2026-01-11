@@ -15,7 +15,12 @@ defmodule Blink.MixProject do
       description: description(),
       package: package(),
       docs: docs(),
-      source_url: "https://github.com/nerds-and-company/blink"
+      source_url: "https://github.com/nerds-and-company/blink",
+      dialyzer: [
+        plt_core_path: "priv/plts",
+        plt_local_path: "priv/plts",
+        flags: [:error_handling, :underspecs]
+      ]
     ]
   end
 
@@ -44,7 +49,8 @@ defmodule Blink.MixProject do
       {:nimble_csv, "~> 1.2"},
       {:jason, "~> 1.4"},
       {:postgrex, "~> 0.17", only: :test},
-      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false}
     ]
   end
 

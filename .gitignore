@@ -21,3 +21,6 @@ blink-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Dialyzer Persistent Lookup Tables (PLTs)
+/priv/plts

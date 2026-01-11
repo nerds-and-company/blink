@@ -33,7 +33,7 @@ defmodule Blink.Store do
       iex> Blink.Store.new()
       %Blink.Store{tables: %{}, context: %{}}
   """
-  @spec new() :: t()
+  @spec new() :: %__MODULE__{context: %{}, tables: %{}}
   def new do
     %__MODULE__{}
   end

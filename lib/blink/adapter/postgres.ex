@@ -38,7 +38,7 @@ defmodule Blink.Adapter.Postgres do
           table_name :: Blink.Store.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, any()}
+        ) :: {:ok, any()} | {:error, Exception.t()}
   def call(items, table_name, repo, opts \\ []) do
     copy_to_table(items, table_name, repo, opts)
   end
@@ -63,6 +63,7 @@ defmodule Blink.Adapter.Postgres do
 
     * `{:ok, :empty}` - When the items list is empty
     * `{:ok, result}` - When the copy operation succeeds
+    * `{:error, exception}` - When the copy operation fails
 
   ## Examples
 
@@ -81,7 +82,7 @@ defmodule Blink.Adapter.Postgres do
           table_name :: Blink.Store.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, any()}
+        ) :: {:ok, any()} | {:error, Exception.t()}
   def copy_to_table(items, table_name, repo, opts \\ [])
       when is_list(items) and is_key(table_name) and is_atom(repo) and is_list(opts) do
     if Enum.empty?(items) do
@@ -119,6 +120,8 @@ defmodule Blink.Adapter.Postgres do
 
       {:ok, result}
     end
+  rescue
+    error -> {:error, error}
   end
 
   defp format_csv_value(nil), do: "\\N"
