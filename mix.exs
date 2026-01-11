@@ -85,6 +85,7 @@ defmodule Blink.MixProject do
         "guides/using_context.md",
         "guides/loading_data_from_files.md",
         "guides/integrating_with_ex_machina.md",
+        "guides/configuring_batch_size.md",
         "guides/custom_adapters.md",
         "CHANGELOG.md",
         "LICENSE"

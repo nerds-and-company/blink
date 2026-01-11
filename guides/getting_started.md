@@ -5,7 +5,6 @@ This guide is an introduction to Blink, a fast bulk data insertion library for E
 In this guide, we are going to:
 - Create a seeder module for inserting users and posts
 - Learn how to access data from previously inserted tables
-- Learn about setting batch sizes
 
 ## Adding Blink to an application
 
@@ -64,11 +63,11 @@ end
 
 The seeder above does the following:
 
-1. `use Blink` - Imports Blink's functions and defines required callbacks
+1. `use Blink` - Injects Blink's functions and defines required callbacks
 2. `new()` - Creates an empty container, called a store, to hold our table data
-3. `add_table("users")` - Registers the users table for insertion
+3. `add_table("users")` - Declares the users table
 4. `table/2` callback - Defines what data to insert into the users table
-5. `insert/2` - Executes the bulk insertion using PostgreSQL's COPY command
+5. `insert/2` - Executes the bulk insertion
 
 Let's run it from IEx:
 
@@ -80,7 +79,7 @@ iex> Blog.Seeders.BlogSeeder.call()
 
 ## Inserting dependent tables
 
-Most applications have relationships between tables. Let's add posts that belong to users. Update the seeder:
+But what if you have relationships between tables. Let's add posts that belong to users. Update the seeder:
 
 ```elixir
 def call do
@@ -90,8 +89,18 @@ def call do
   |> insert(Blog.Repo)
 end
 
-# ... existing table/2 for users ...
+def table(_store, "users") do
+  for i <- 1..100 do
+    %{
+      id: i,
+      name: "User #{i}",
+      email: "user#{i}@example.com",
+      inserted_at: ~U[2024-01-01 00:00:00Z],
+      updated_at: ~U[2024-01-01 00:00:00Z]
+    }
+  end
 
+# Add another table/2 clause
 def table(store, "posts") do
   users = store.tables["users"]  # Access previously inserted users
 
@@ -119,32 +128,6 @@ iex> Blog.Seeders.BlogSeeder.call()
 # => Inserts 100 users and 500 posts
 ```
 
-## Configuring batch size
-
-By default, Blink inserts records in batches of 900. You can configure this for optimal performance:
-
-```elixir
-def call do
-  new()
-  |> add_table("users")
-  |> insert(Blog.Repo, batch_size: 1_200)
-end
-```
-
-A larger batch size can improve performance for large datasets, while a smaller batch size may be more suitable for records with many columns or large text fields.
-
-For maximum insertion speed when memory is not a constraint, you can disable batching entirely:
-
-```elixir
-def call do
-  new()
-  |> add_table("users")
-  |> insert(Blog.Repo, batch_size: :infinity)
-end
-```
-
-Note that disabling batching will use more memory as all data is converted to CSV format at once, but can provide the fastest insertion speed. The current version of Blink loads all items into memory before insertion, so even with batching turned on it works best for datasets of moderate size.
-
 ## Summary
 
 In this guide, we learned how to:
@@ -152,7 +135,6 @@ In this guide, we learned how to:
 - Create a seeder module with `use Blink`
 - Insert data into multiple related tables
 - Access previously inserted table data via `store.tables`
-- Configure batch sizes for performance
 
 ## Next steps
 
@@ -161,5 +143,6 @@ You might also find these guides useful:
 - [Using Context](using_context.html) - Share computed data across tables
 - [Loading Data from Files](loading_data_from_files.html) - Learn how to load data from CSV and JSON files
 - [Integrating with ExMachina](integrating_with_ex_machina.html) - Generate realistic test data
+- [Configuring Batch Size](configuring_batch_size.html) - Configure batch sizes for insertion
 
 For more information, see the [Blink API documentation](https://hexdocs.pm/blink/Blink.html).
