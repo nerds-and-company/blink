@@ -14,7 +14,7 @@ Add Blink to your dependencies in `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:blink, "~> 0.2.0"}
+    {:blink, "~> 0.3.0"}
   ]
 end
 ```
@@ -143,7 +143,7 @@ def call do
 end
 ```
 
-Note that disabling batching will use more memory as all data is converted to CSV format at once, but can provide the fastest insertion speed. The current version of Blink loads all items into memory before insertion, so even with the batching turned on it works best for datasets of moderate size.
+Note that disabling batching will use more memory as all data is converted to CSV format at once, but can provide the fastest insertion speed. The current version of Blink loads all items into memory before insertion, so even with batching turned on it works best for datasets of moderate size.
 
 ## Summary
 

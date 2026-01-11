@@ -11,7 +11,7 @@ Add `blink` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:blink, "~> 0.2.0"}
+    {:blink, "~> 0.3.0"}
   ]
 end
 ```
@@ -37,8 +37,8 @@ defmodule MyApp.Seeder do
         id: i,
         name: "User #{i}",
         email: "user#{i}@example.com",
-        inserted_at: DateTime.utc_now(),
-        updated_at: DateTime.utc_now()
+        inserted_at: ~U[2024-01-01 00:00:00Z],
+        updated_at: ~U[2024-01-01 00:00:00Z]
       }
     end
   end
@@ -52,8 +52,8 @@ defmodule MyApp.Seeder do
           id: (user.id - 1) * 5 + i,
           title: "Post #{i}",
           user_id: user.id,
-          inserted_at: DateTime.utc_now(),
-          updated_at: DateTime.utc_now()
+          inserted_at: ~U[2024-01-01 00:00:00Z],
+          updated_at: ~U[2024-01-01 00:00:00Z]
         }
       end
     end)
@@ -76,6 +76,7 @@ MyApp.Seeder.call()
 ## Usage
 
 Blink uses a callback-based pattern where you define:
+
 - Which tables to insert (via `add_table/2`)
 - What data goes in each table (via `table/2` callback)
 - Optional shared context (via `add_context/2` and `context/2` callback)
@@ -94,8 +95,8 @@ def table(store, "posts") do
         id: (user.id - 1) * 3 + i,
         title: "Post #{i}",
         user_id: user.id,
-        inserted_at: DateTime.utc_now(),
-        updated_at: DateTime.utc_now()
+        inserted_at: ~U[2024-01-01 00:00:00Z],
+        updated_at: ~U[2024-01-01 00:00:00Z]
       }
     end
   end)
@@ -141,8 +142,8 @@ def table(_store, "users") do
     transform: fn row ->
       row
       |> Map.update!("id", &String.to_integer/1)
-      |> Map.put("inserted_at", DateTime.utc_now())
-      |> Map.put("updated_at", DateTime.utc_now())
+      |> Map.put("inserted_at", ~U[2024-01-01 00:00:00Z])
+      |> Map.put("updated_at", ~U[2024-01-01 00:00:00Z])
     end
   )
 end
@@ -150,7 +151,7 @@ end
 def table(_store, "products") do
   Blink.from_json("priv/seed_data/products.json",
     transform: fn product ->
-      Map.put(product, "inserted_at", DateTime.utc_now())
+      Map.put(product, "inserted_at", ~U[2024-01-01 00:00:00Z])
     end
   )
 end
@@ -213,11 +214,11 @@ end
 
 ## Requirements
 
-| Requirement | Version |
-|-------------|---------|
-| Elixir | 1.15+ |
-| Ecto | 3.0+ |
-| PostgreSQL | Any supported version |
+| Requirement | Version               |
+| ----------- | --------------------- |
+| Elixir      | 1.15+                 |
+| Ecto        | 3.0+                  |
+| PostgreSQL  | Any supported version |
 
 ## Known Limitations
 
