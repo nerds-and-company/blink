@@ -48,7 +48,7 @@ defmodule BlinkIntegrationTest do
              ]
     end
 
-    test "inserts data into multiple tables" do
+    test "inserts data into tables with foreign key constraints" do
       defmodule Dummy do
         use Blink
 

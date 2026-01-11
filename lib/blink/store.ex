@@ -8,18 +8,21 @@ defmodule Blink.Store do
   A `Store` holds:
 
     * `:tables` — data that will be inserted into the database.
+    * `:table_order` - the order in which tables were added, used to ensure
+      inserts respect foreign key constraints.
     * `:context` — auxiliary data available while constructing the `Store`, and
       will not be inserted into the database.
   """
 
   @behaviour Access
 
-  defstruct tables: %{}, context: %{}
+  defstruct tables: %{}, table_order: [], context: %{}
 
   @type key :: binary() | atom()
 
   @type t :: %__MODULE__{
           tables: map(),
+          table_order: [key()],
           context: map()
         }
 
@@ -31,9 +34,9 @@ defmodule Blink.Store do
   ## Example
 
       iex> Blink.Store.new()
-      %Blink.Store{tables: %{}, context: %{}}
+      %Blink.Store{tables: %{}, table_order: [], context: %{}}
   """
-  @spec new() :: %__MODULE__{context: %{}, tables: %{}}
+  @spec new() :: %__MODULE__{context: %{}, table_order: [], tables: %{}}
   def new do
     %__MODULE__{}
   end
@@ -53,7 +56,9 @@ defmodule Blink.Store do
       when is_key(table_name) and is_function(builder, 2) do
     raise_if_key_exists(store, table_name, :tables)
 
-    put_in(store.tables[table_name], builder.(store, table_name))
+    store
+    |> put_in([:tables, table_name], builder.(store, table_name))
+    |> update_in([:table_order], fn order -> order ++ [table_name] end)
   end
 
   @doc """
@@ -101,7 +106,9 @@ defmodule Blink.Store do
           {:ok, any()} | {:error, any()}
   def insert(%__MODULE__{} = store, repo, opts \\ []) when is_atom(repo) do
     repo.transact(fn ->
-      Enum.each(store.tables, fn {table_name, items} ->
+      Enum.each(store[:table_order], fn table_name ->
+        items = Map.fetch!(store[:tables], table_name)
+
         case Blink.copy_to_table(items, table_name, repo, opts) do
           {:ok, _} -> :ok
           {:error, reason} -> raise reason
@@ -115,14 +122,15 @@ defmodule Blink.Store do
   end
 
   @impl Access
-  def fetch(%__MODULE__{} = store, key) when key in [:tables, :context] do
+  def fetch(%__MODULE__{} = store, key) when key in [:tables, :table_order, :context] do
     {:ok, Map.get(store, key)}
   end
 
   def fetch(_, _), do: :error
 
   @impl Access
-  def get_and_update(%__MODULE__{} = store, key, fun) when key in [:tables, :context] do
+  def get_and_update(%__MODULE__{} = store, key, fun)
+      when key in [:tables, :table_order, :context] do
     {get_value, new_value} = fun.(Map.get(store, key))
     {get_value, Map.put(store, key, new_value)}
   end
@@ -130,7 +138,7 @@ defmodule Blink.Store do
   def get_and_update(store, _, _), do: {nil, store}
 
   @impl Access
-  def pop(%__MODULE__{} = store, key) when key in [:tables, :context] do
+  def pop(%__MODULE__{} = store, key) when key in [:tables, :table_order, :context] do
     {Map.get(store, key), Map.put(store, key, nil)}
   end
 

@@ -14,7 +14,7 @@ defmodule BlinkTest.Repo.Migrations.CreateTestTables do
       add :id, :integer, primary_key: true
       add :title, :string
       add :body, :text
-      add :user_id, :integer
+      add :user_id, references(:users, type: :integer, on_delete: :nothing), null: false
     end
   end
 end
