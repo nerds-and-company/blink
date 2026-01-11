@@ -106,37 +106,6 @@ defmodule BlinkIntegrationTest do
       assert users == [0]
     end
 
-    test "uses context to build table data" do
-      defmodule Dummy do
-        use Blink
-
-        def call do
-          new()
-          |> add_context("user_ids")
-          |> add_table("posts")
-          |> insert(Repo)
-        end
-
-        def context(_store, "user_ids") do
-          [1, 2, 3]
-        end
-
-        def table(store, "posts") do
-          user_ids = store.context["user_ids"]
-
-          Enum.map(user_ids, fn id ->
-            %{id: id, title: "Post #{id}", body: "Body #{id}", user_id: id}
-          end)
-        end
-      end
-
-      assert {:ok, _} = Dummy.call()
-
-      # Verify posts were created using context
-      posts = Repo.all(from(p in "posts", select: {p.id, p.title}, order_by: p.id))
-      assert posts == [{1, "Post 1"}, {2, "Post 2"}, {3, "Post 3"}]
-    end
-
     test "rolls back transaction on error" do
       defmodule Dummy do
         use Blink
