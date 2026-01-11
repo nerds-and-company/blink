@@ -254,5 +254,37 @@ defmodule BlinkIntegrationTest do
       last_user = Repo.one(from(u in "users", where: u.id == 10, select: u.name))
       assert last_user == "User 10"
     end
+
+    test "handles maps with inconsistent key order" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          # Maps with keys in different orders (Map.keys/1 order is not guaranteed)
+          [
+            %{id: 1, name: "Alice", email: "alice@example.com"},
+            %{email: "bob@example.com", name: "Bob", id: 2},
+            %{name: "Charlie", id: 3, email: "charlie@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      # Verify all data was inserted correctly regardless of key order
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice", "alice@example.com"},
+               {2, "Bob", "bob@example.com"},
+               {3, "Charlie", "charlie@example.com"}
+             ]
+    end
   end
 end
