@@ -137,10 +137,8 @@ defmodule Blink do
       @behaviour Blink
       @default_batch_size 900
 
-      import Store, only: [is_key: 1]
-
-      @spec new() :: Store.t()
-      defdelegate new(), to: Store
+      import Store, only: [is_key: 1, new: 0]
+      import Blink, only: [from_csv: 1, from_csv: 2, from_json: 1, from_json: 2, copy_to_table: 3, copy_to_table: 4]
 
       @spec add_table(store :: Store.t(), table_name :: Store.key()) ::
               Store.t()
