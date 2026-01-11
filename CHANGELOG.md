@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New guide: "Custom Adapters" - documentation for creating custom database adapters
 - Added public `Blink.Store.key()` type for table and context keys
 - Added public `is_key/1` guard for validating table and context keys
+- Added error handling in `Blink.Adapter.Postgres` to return `{:error, Exception.t()}` on database failures
+- Added GitHub Actions CI workflow with test, format, and Dialyzer jobs
 
 ### Changed
 - **BREAKING**: Changed return type of `insert/2` and `insert/3` from `:ok | {:error, any()}` to `{:ok, any()} | {:error, any()}`.
@@ -21,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored store manipulation logic from `__using__` macro into `Blink.Store` module for better code organization
 - Replaced `binary() | atom()` type annotations with `Blink.Store.key()` throughout the codebase for consistency
 - Increased Elixir requirement from 1.14 to 1.15 for compatibility with NimbleCSV
+- Updated type specifications in `Blink.Adapter.Postgres` to use `{:error, Exception.t()}` instead of `{:error, any()}` for better type safety
+
+### Fixed
+- Fixed Dialyzer warnings in `Blink.Adapter.Postgres` by adding proper error handling and updating type specifications
 
 ## [0.2.0] - 2026-01-09
 
