@@ -191,13 +191,6 @@ defmodule MyApp.Seeder do
 end
 ```
 
-## Learning Blink
-
-- [Getting Started guide](https://hexdocs.pm/blink/getting-started.html) - Step-by-step tutorial building a complete seeding system
-- [Custom Adapters guide](https://hexdocs.pm/blink/custom-adapters.html) - Create adapters for MySQL, SQL Server, or custom implementations
-- [API documentation](https://hexdocs.pm/blink) - Full reference for all functions and callbacks
-- [Changelog](CHANGELOG.md) - Version history and migration guides
-
 ## Requirements
 
 | Requirement | Version               |
