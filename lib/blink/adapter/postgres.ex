@@ -52,12 +52,14 @@ defmodule Blink.Adapter.Postgres do
 
   ## Parameters
 
-    * `items` - A list of maps where each map represents a row to insert. All maps
-      must have the same keys, which correspond to the table columns.
+    * `items` - A list of maps where each map represents a row to insert. All
+      maps must have the same keys, which correspond to the table columns.
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
     * `opts` - Keyword list of options:
-      * `:batch_size` - Number of rows to send per batch (default: 900)
+      * `:batch_size` - Number of rows to send per batch (default: 900). Set to
+        `:infinity` to disable batching and send all rows at once for maximum
+        speed.
 
   ## Returns
 
@@ -71,11 +73,14 @@ defmodule Blink.Adapter.Postgres do
       iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
       {:ok, _result}
 
+      # Disable batching for maximum speed (uses more memory)
+      iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo, batch_size: :infinity)
+      {:ok, _result}
+
   ## Notes
 
-  The function assumes all items have the same structure. Column names are
-  extracted from the first item in the list. NULL values are represented as `\\N`
-  in the CSV format.
+  The function assumes all items have the same keys. NULL values are represented
+  as `\\N` in the CSV format.
   """
   @spec copy_to_table(
           items :: [map()],
@@ -102,9 +107,11 @@ defmodule Blink.Adapter.Postgres do
           """
         )
 
+      batch_size = Keyword.get(opts, :batch_size, @default_batch_size)
+
       result =
         items
-        |> Stream.chunk_every(Keyword.get(opts, :batch_size, @default_batch_size))
+        |> maybe_chunk(batch_size)
         |> Enum.into(stream, fn chunk ->
           chunk
           |> Enum.map(fn row ->
@@ -122,6 +129,12 @@ defmodule Blink.Adapter.Postgres do
     end
   rescue
     error -> {:error, error}
+  end
+
+  defp maybe_chunk(items, :infinity), do: [items]
+
+  defp maybe_chunk(items, batch_size) when is_integer(batch_size) and batch_size > 0 do
+    Stream.chunk_every(items, batch_size)
   end
 
   defp format_csv_value(nil), do: "\\N"

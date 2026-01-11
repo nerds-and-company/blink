@@ -133,6 +133,18 @@ end
 
 A larger batch size can improve performance for large datasets, while a smaller batch size may be more suitable for records with many columns or large text fields.
 
+For maximum insertion speed when memory is not a constraint, you can disable batching entirely:
+
+```elixir
+def call do
+  new()
+  |> add_table("users")
+  |> insert(Blog.Repo, batch_size: :infinity)
+end
+```
+
+Note that disabling batching will use more memory as all data is converted to CSV format at once, but can provide the fastest insertion speed. The current version of Blink loads all items into memory before insertion, so even with the batching turned on it works best for datasets of moderate size.
+
 ## Summary
 
 In this guide, we learned how to:

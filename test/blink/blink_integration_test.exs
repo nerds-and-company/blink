@@ -193,49 +193,18 @@ defmodule BlinkIntegrationTest do
   end
 
   describe "insert/3" do
-    test "inserts data with options" do
+    test "inserts with custom batch size" do
       defmodule Dummy do
         use Blink
 
         def call do
           new()
           |> add_table("users")
-          |> insert(Repo, batch_size: 1)
+          |> insert(Repo, batch_size: 2)
         end
 
         def table(_store, "users") do
-          [
-            %{id: 1, name: "Alice", email: "alice@example.com"},
-            %{id: 2, name: "Bob", email: "bob@example.com"},
-            %{id: 3, name: "Charlie", email: "charlie@example.com"}
-          ]
-        end
-      end
-
-      assert {:ok, _} = Dummy.call()
-
-      # Verify data was inserted with batch_size option
-      users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
-
-      assert users == [
-               {1, "Alice"},
-               {2, "Bob"},
-               {3, "Charlie"}
-             ]
-    end
-
-    test "inserts large dataset with custom batch size" do
-      defmodule Dummy do
-        use Blink
-
-        def call do
-          new()
-          |> add_table("users")
-          |> insert(Repo, batch_size: 5)
-        end
-
-        def table(_store, "users") do
-          for i <- 1..10 do
+          for i <- 1..5 do
             %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
           end
         end
@@ -243,16 +212,49 @@ defmodule BlinkIntegrationTest do
 
       assert {:ok, _} = Dummy.call()
 
-      # Verify all data was inserted
-      user_count = Repo.one(from(u in "users", select: count()))
-      assert user_count == 10
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
-      # Verify some sample data
-      first_user = Repo.one(from(u in "users", where: u.id == 1, select: u.name))
-      assert first_user == "User 1"
+      assert length(users) == 5
 
-      last_user = Repo.one(from(u in "users", where: u.id == 10, select: u.name))
-      assert last_user == "User 10"
+      assert users == [
+               {1, "User 1", "user1@example.com"},
+               {2, "User 2", "user2@example.com"},
+               {3, "User 3", "user3@example.com"},
+               {4, "User 4", "user4@example.com"},
+               {5, "User 5", "user5@example.com"}
+             ]
+    end
+
+    test "inserts with batching disabled" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo, batch_size: :infinity)
+        end
+
+        def table(_store, "users") do
+          for i <- 1..5 do
+            %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
+          end
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert length(users) == 5
+
+      assert users == [
+               {1, "User 1", "user1@example.com"},
+               {2, "User 2", "user2@example.com"},
+               {3, "User 3", "user3@example.com"},
+               {4, "User 4", "user4@example.com"},
+               {5, "User 5", "user5@example.com"}
+             ]
     end
 
     test "handles maps with inconsistent key order" do

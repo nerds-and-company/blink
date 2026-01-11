@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added public `is_key/1` guard for validating table and context keys
 - Added error handling in `Blink.Adapter.Postgres` to return `{:error, Exception.t()}` on database failures
 - Added GitHub Actions CI workflow with test, format, and Dialyzer jobs
+- Added support for `batch_size: :infinity` option in `copy_to_table/4` to disable CSV batching
 
 ### Changed
 - **BREAKING**: Changed return type of `insert/2` and `insert/3` from `:ok | {:error, any()}` to `{:ok, any()} | {:error, any()}`.
