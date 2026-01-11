@@ -81,28 +81,6 @@ Blink uses a callback-based pattern where you define:
 - What data goes in each table (via `table/2` callback)
 - Optional shared context (via `add_context/2` and `context/2` callback)
 
-### Accessing Previously Inserted Tables
-
-Tables are inserted in the order they're added. Access previous table data via `store.tables`:
-
-```elixir
-def table(store, "posts") do
-  users = store.tables["users"]  # Access users inserted earlier
-
-  Enum.flat_map(users, fn user ->
-    for i <- 1..3 do
-      %{
-        id: (user.id - 1) * 3 + i,
-        title: "Post #{i}",
-        user_id: user.id,
-        inserted_at: ~U[2024-01-01 00:00:00Z],
-        updated_at: ~U[2024-01-01 00:00:00Z]
-      }
-    end
-  end)
-end
-```
-
 ### Using Data from Context
 
 Use context to compute expensive operations once and share across all tables:
@@ -138,7 +116,7 @@ Load data from CSV or JSON files:
 
 ```elixir
 def table(_store, "users") do
-  Blink.from_csv("priv/seed_data/users.csv",
+  from_csv("priv/seed_data/users.csv",
     transform: fn row ->
       row
       |> Map.update!("id", &String.to_integer/1)
@@ -149,7 +127,7 @@ def table(_store, "users") do
 end
 
 def table(_store, "products") do
-  Blink.from_json("priv/seed_data/products.json",
+  from_json("priv/seed_data/products.json",
     transform: fn product ->
       Map.put(product, "inserted_at", ~U[2024-01-01 00:00:00Z])
     end
@@ -161,12 +139,20 @@ CSV files use the first row as headers by default. Both helpers accept a `:trans
 
 ### Configuring Batch Size
 
-Adjust batch size for large datasets:
+Adjust batch size:
 
 ```elixir
 new()
 |> add_table("users")
 |> insert(MyApp.Repo, batch_size: 5_000)  # Default: 900
+```
+
+Or disable batching:
+
+```elixir
+new()
+|> add_table("users")
+|> insert(MyApp.Repo, batch_size: :infinity)
 ```
 
 ### Using with ExMachina
