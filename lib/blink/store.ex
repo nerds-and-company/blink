@@ -26,6 +26,12 @@ defmodule Blink.Store do
           context: map()
         }
 
+  @type empty :: %__MODULE__{
+          tables: %{},
+          table_order: [],
+          context: %{}
+        }
+
   defguard is_key(key) when is_binary(key) or is_atom(key)
 
   @doc """
@@ -36,7 +42,7 @@ defmodule Blink.Store do
       iex> Blink.Store.new()
       %Blink.Store{tables: %{}, table_order: [], context: %{}}
   """
-  @spec new() :: %__MODULE__{context: %{}, table_order: [], tables: %{}}
+  @spec new() :: empty()
   def new do
     %__MODULE__{}
   end
@@ -106,8 +112,8 @@ defmodule Blink.Store do
           {:ok, any()} | {:error, any()}
   def insert(%__MODULE__{} = store, repo, opts \\ []) when is_atom(repo) do
     repo.transact(fn ->
-      Enum.each(store[:table_order], fn table_name ->
-        items = Map.fetch!(store[:tables], table_name)
+      Enum.each(store.table_order, fn table_name ->
+        items = Map.fetch!(store.tables, table_name)
 
         case Blink.copy_to_table(items, table_name, repo, opts) do
           {:ok, _} -> :ok
@@ -138,8 +144,12 @@ defmodule Blink.Store do
   def get_and_update(store, _, _), do: {nil, store}
 
   @impl Access
-  def pop(%__MODULE__{} = store, key) when key in [:tables, :table_order, :context] do
-    {Map.get(store, key), Map.put(store, key, nil)}
+  def pop(%__MODULE__{} = store, key) when key in [:tables, :context] do
+    {Map.get(store, key), Map.put(store, key, %{})}
+  end
+
+  def pop(%__MODULE__{} = store, :table_order) do
+    {store.table_order, Map.put(store, :table_order, [])}
   end
 
   def pop(store, _), do: {nil, store}

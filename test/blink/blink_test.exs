@@ -1,7 +1,6 @@
 defmodule BlinkTest do
   use ExUnit.Case, async: false
 
-  alias Blink.Store
   alias BlinkTest.Dummy
 
   setup do
@@ -9,16 +8,6 @@ defmodule BlinkTest do
       :code.delete(Dummy)
       :code.purge(Dummy)
     end)
-  end
-
-  describe "new/0" do
-    test "returns an empty Store" do
-      defmodule Dummy do
-        use Blink
-      end
-
-      assert %Store{tables: %{}, context: %{}} = Dummy.new()
-    end
   end
 
   describe "add_table/2" do
@@ -111,7 +100,7 @@ defmodule BlinkTest do
         end
 
         def insert(store, repo) do
-          assert %Store{} = store
+          assert %Blink.Store{} = store
           assert BlinkTest.Repo = repo
 
           :some_custom_result
@@ -138,7 +127,7 @@ defmodule BlinkTest do
         end
 
         def insert(store, repo, opts) do
-          assert %Store{} = store
+          assert %Blink.Store{} = store
           assert BlinkTest.Repo = repo
           assert [batch_size: 500] = opts
 
