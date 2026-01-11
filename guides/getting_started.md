@@ -5,7 +5,7 @@ This guide is an introduction to Blink, a fast bulk data insertion library for E
 In this guide, we are going to:
 - Create a seeder module for inserting users and posts
 - Learn how to access data from previously inserted tables
-- Configure batch sizes for optimal performance
+- Learn about setting batch sizes
 
 ## Adding Blink to an application
 
@@ -14,7 +14,7 @@ Add Blink to your dependencies in `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:blink, "~> 0.3.0"}
+    {:blink, "~> 0.4.0"}
   ]
 end
 ```
