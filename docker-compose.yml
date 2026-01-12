@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGPORT=${POSTGRES_PORT}
+      - POSTGRES_HOST_AUTH_METHOD=md5
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+
+    command: postgres -c stats_temp_directory=/tmp

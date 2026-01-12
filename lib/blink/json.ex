@@ -8,29 +8,26 @@ defmodule Blink.JSON do
       |> File.read!()
       |> Jason.decode!()
 
-    parse_json_items(raw_items, Keyword.get(opts, :transform, & &1))
-  end
+    unless is_list(raw_items) do
+      raise ArgumentError,
+            "JSON file must contain an array at root level, found: #{inspect(raw_items)}"
+    end
 
-  defp parse_json_items(_, transform) when not is_function(transform, 1) do
-    raise ArgumentError, ":transform option must be a function that takes 1 argument"
-  end
+    transform = Keyword.get(opts, :transform, & &1)
 
-  defp parse_json_items(items, transform) when is_list(items) do
-    validate_json_items(items)
-    Enum.map(items, transform)
-  end
+    unless is_function(transform, 1) do
+      raise ArgumentError, ":transform option must be a function that takes 1 argument"
+    end
 
-  defp parse_json_items(other, _transform) do
-    raise ArgumentError,
-          "JSON file must contain an array at root level, found: #{inspect(other)}"
-  end
+    transform = fn
+      %{} = item ->
+        transform.(item)
 
-  defp validate_json_items(items) do
-    Enum.each(items, fn item ->
-      if not is_map(item) do
+      item ->
         raise ArgumentError,
               "JSON file must contain an array of objects, found: #{inspect(item)}"
-      end
-    end)
+    end
+
+    Enum.map(raw_items, transform)
   end
 end

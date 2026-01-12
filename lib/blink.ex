@@ -279,6 +279,12 @@ defmodule Blink do
   defdelegate from_csv(path, opts \\ []), to: Blink.CSV
 
   @doc """
+  Same as `from_csv/2`, but returns a lazily evaluated stream
+  """
+  @spec stream_from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  defdelegate stream_from_csv(path, opts \\ []), to: Blink.CSV
+
+  @doc """
   Reads a JSON file and returns a list of maps suitable for use in `table/2` callbacks.
 
   The JSON file must contain an array of objects at the root level. Each object

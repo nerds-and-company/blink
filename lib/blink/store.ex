@@ -14,8 +14,6 @@ defmodule Blink.Store do
       will not be inserted into the database.
   """
 
-  @behaviour Access
-
   defstruct tables: %{}, table_order: [], context: %{}
 
   @type key :: binary() | atom()
@@ -60,11 +58,14 @@ defmodule Blink.Store do
         ) :: t()
   def add_table(%__MODULE__{} = store, table_name, builder)
       when is_key(table_name) and is_function(builder, 2) do
+    table_name = to_string(table_name)
     raise_if_key_exists(store, table_name, :tables)
 
-    store
-    |> put_in([:tables, table_name], builder.(store, table_name))
-    |> update_in([:table_order], fn order -> order ++ [table_name] end)
+    %{
+      store
+      | tables: Map.put(store.tables, table_name, builder.(store, table_name)),
+        table_order: store.table_order ++ [table_name]
+    }
   end
 
   @doc """
@@ -79,24 +80,19 @@ defmodule Blink.Store do
         ) :: t()
   def add_context(%__MODULE__{} = store, key, builder)
       when is_key(key) and is_function(builder, 2) do
+    key = to_string(key)
     raise_if_key_exists(store, key, :context)
 
-    put_in(store.context[key], builder.(store, key))
+    %{store | context: Map.put(store.context, key, builder.(store, key))}
   end
 
-  defp raise_if_key_exists(%__MODULE__{} = store, key, target) do
-    keys_as_strings =
-      store[target]
-      |> Map.keys()
-      |> Enum.map(&key_to_string/1)
-
-    if key_to_string(key) in keys_as_strings do
+  defp raise_if_key_exists(%__MODULE__{} = store, key, target) when is_binary(key) do
+    with %{^target => %{^key => _}} <- store do
       raise ArgumentError, "key already exists in `#{inspect(target)}` of Store: #{key}"
     end
-  end
 
-  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
-  defp key_to_string(key) when is_binary(key), do: key
+    :ok
+  end
 
   @doc """
   Inserts all table records from a Store into the given repository.
@@ -115,42 +111,11 @@ defmodule Blink.Store do
       Enum.each(store.table_order, fn table_name ->
         items = Map.fetch!(store.tables, table_name)
 
-        case Blink.copy_to_table(items, table_name, repo, opts) do
-          {:ok, _} -> :ok
-          {:error, reason} -> raise reason
-        end
+        Blink.copy_to_table(items, table_name, repo, opts)
+        :ok
       end)
 
       {:ok, :inserted}
     end)
-  rescue
-    e -> {:error, e}
   end
-
-  @impl Access
-  def fetch(%__MODULE__{} = store, key) when key in [:tables, :table_order, :context] do
-    {:ok, Map.get(store, key)}
-  end
-
-  def fetch(_, _), do: :error
-
-  @impl Access
-  def get_and_update(%__MODULE__{} = store, key, fun)
-      when key in [:tables, :table_order, :context] do
-    {get_value, new_value} = fun.(Map.get(store, key))
-    {get_value, Map.put(store, key, new_value)}
-  end
-
-  def get_and_update(store, _, _), do: {nil, store}
-
-  @impl Access
-  def pop(%__MODULE__{} = store, key) when key in [:tables, :context] do
-    {Map.get(store, key), Map.put(store, key, %{})}
-  end
-
-  def pop(%__MODULE__{} = store, :table_order) do
-    {store.table_order, Map.put(store, :table_order, [])}
-  end
-
-  def pop(store, _), do: {nil, store}
 end

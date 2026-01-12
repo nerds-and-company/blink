@@ -199,18 +199,10 @@ end
 | Ecto        | 3.0+                  |
 | PostgreSQL  | Any supported version |
 
-## Known Limitations
+## Development
 
-**Memory usage with large datasets** - Blink loads all table data into memory before insertion. For very large datasets, consider splitting your seeder into multiple modules:
-
-```elixir
-# Instead of one large seeder, use multiple smaller ones
-organization_ids = OrganizationSeeder.call()
-user_ids = UserSeeder.call(organization_ids)
-PostSeeder.call(user_ids)
-```
-
-This limitation may be addressed in a future version.
+With Nix just `nix develop` and `docker compose up -d` and you can run tests.
+Without nix, export env vars from `shell.nix` and do `docker-compose up -d`.
 
 ## License
 
