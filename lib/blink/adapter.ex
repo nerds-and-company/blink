@@ -46,7 +46,7 @@ defmodule Blink.Adapter do
               table_name :: Blink.Store.key(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
-            ) :: {:ok, any()} | {:error, any()}
+            ) :: Enumerable.t() | :empty
 
   @doc """
   Copies a list of items into a database table using the appropriate database
@@ -59,17 +59,15 @@ defmodule Blink.Adapter do
           table_name :: Blink.Store.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, any()}
+        ) :: Enumerable.t() | :empty
   def copy_to_table(items, table_name, repo, opts \\ []) do
     adapter = Keyword.get(opts, :adapter, Blink.Adapter.Postgres)
 
-    try do
-      adapter.call(items, table_name, repo, opts)
-    rescue
-      UndefinedFunctionError ->
-        reraise ArgumentError,
-                "adapter #{inspect(adapter)} must implement Blink.Adapter behaviour and define call/4",
-                __STACKTRACE__
+    unless Code.ensure_loaded?(adapter) and function_exported?(adapter, :call, 4) do
+      raise ArgumentError,
+            "adapter #{inspect(adapter)} must implement Blink.Adapter behaviour and define call/4"
     end
+
+    adapter.call(items, table_name, repo, opts)
   end
 end

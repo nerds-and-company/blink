@@ -3,6 +3,8 @@ defmodule BlinkTest do
 
   alias BlinkTest.Dummy
 
+  @moduletag capture_log: true
+
   setup do
     on_exit(fn ->
       :code.delete(Dummy)
@@ -24,7 +26,7 @@ defmodule BlinkTest do
         def table(_, _), do: []
       end
 
-      assert %{tables: %{:atom => _}} = Dummy.call()
+      assert %{tables: %{"atom" => _}} = Dummy.call()
       assert %{tables: %{"string" => _}} = Dummy.call()
     end
 
@@ -61,7 +63,7 @@ defmodule BlinkTest do
         def context(_, _), do: []
       end
 
-      assert %{context: %{:atom => _}} = Dummy.call()
+      assert %{context: %{"atom" => _}} = Dummy.call()
       assert %{context: %{"string" => _}} = Dummy.call()
     end
 

@@ -3,7 +3,9 @@ defmodule Blink.CSV do
 
   NimbleCSV.define(Blink.CSVParser, separator: ",", escape: "\"")
 
-  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  @type entry :: %{String.t() => term()}
+
+  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [entry()]
   def from_csv(path, opts) do
     raw_rows =
       path
@@ -16,6 +18,31 @@ defmodule Blink.CSV do
       Keyword.get(opts, :headers, :infer),
       Keyword.get(opts, :transform, & &1)
     )
+  end
+
+  @spec stream_from_csv(path :: String.t(), opts :: Keyword.t()) ::
+          Enumerable.t(%{String.t() => term()})
+  def stream_from_csv(path, opts) do
+    transform = Keyword.get(opts, :transform, & &1)
+
+    headers =
+      with :infer <- Keyword.get(opts, :headers, :infer) do
+        path
+        |> File.stream!()
+        |> Blink.CSVParser.parse_stream(skip_headers: false)
+        |> Enum.take(1)
+        |> hd()
+      end
+
+    path
+    |> File.stream!()
+    |> Blink.CSVParser.parse_stream(skip_headers: true)
+    |> Stream.map(fn row ->
+      headers
+      |> Enum.zip(row)
+      |> Map.new()
+      |> transform.()
+    end)
   end
 
   defp parse_csv_rows([], _, _), do: []

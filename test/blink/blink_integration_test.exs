@@ -6,6 +6,8 @@ defmodule BlinkIntegrationTest do
 
   import Ecto.Query, warn: false
 
+  @moduletag capture_log: true
+
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
 
@@ -16,6 +18,66 @@ defmodule BlinkIntegrationTest do
     end)
 
     :ok
+  end
+
+  describe "from file insert/2" do
+    test "inserts data into table from csv" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          fixtures_path = Path.expand("../fixtures", __DIR__)
+          path = Path.join(fixtures_path, "users.csv")
+          Blink.from_csv(path, transform: &Map.take(&1, ~w[id name email]))
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      # Verify data was inserted
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice", "alice@example.com"},
+               {2, "Bob", "bob@example.com"},
+               {3, "Charlie", "charlie@example.com"}
+             ]
+    end
+
+    test "inserts data into table from csv stream" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          fixtures_path = Path.expand("../fixtures", __DIR__)
+          path = Path.join(fixtures_path, "users.csv")
+          Blink.stream_from_csv(path, transform: &Map.take(&1, ~w[id name email]))
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      # Verify data was inserted
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice", "alice@example.com"},
+               {2, "Bob", "bob@example.com"},
+               {3, "Charlie", "charlie@example.com"}
+             ]
+    end
   end
 
   describe "insert/2" do
@@ -45,6 +107,64 @@ defmodule BlinkIntegrationTest do
       assert users == [
                {1, "Alice", "alice@example.com"},
                {2, "Bob", "bob@example.com"}
+             ]
+    end
+
+    test "inserts strings with | pipes" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "A|l|i|c|e", email: "alice@example.com"},
+            %{id: 2, name: "B|o|b", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      # Verify data was inserted
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "A|l|i|c|e", "alice@example.com"},
+               {2, "B|o|b", "bob@example.com"}
+             ]
+    end
+
+    test "inserts strings with \" quotes" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "Ali\"ce", email: "alice@example.com"},
+            %{id: 2, name: "B\"o\"b", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      # Verify data was inserted
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Ali\"ce", "alice@example.com"},
+               {2, "B\"o\"b", "bob@example.com"}
              ]
     end
 
@@ -126,7 +246,9 @@ defmodule BlinkIntegrationTest do
       end
 
       # Should return error
-      assert {:error, _reason} = Dummy.call()
+      assert_raise Postgrex.Error, fn ->
+        Dummy.call()
+      end
 
       # Verify nothing was inserted (transaction rolled back)
       users = Repo.all(from(u in "users", select: count()))

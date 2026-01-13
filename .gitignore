@@ -24,3 +24,4 @@ blink-*.tar
 
 # Dialyzer Persistent Lookup Tables (PLTs)
 /priv/plts
+.nix-mix

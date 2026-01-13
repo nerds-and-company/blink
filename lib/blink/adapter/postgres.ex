@@ -83,19 +83,22 @@ defmodule Blink.Adapter.Postgres do
   as `\\N` in the CSV format.
   """
   @spec copy_to_table(
-          items :: [map()],
+          items :: Enumerable.t(map()),
           table_name :: Blink.Store.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, Exception.t()}
+        ) :: Enumerable.t() | :empty
   def copy_to_table(items, table_name, repo, opts \\ [])
-      when is_list(items) and is_key(table_name) and is_atom(repo) and is_list(opts) do
+      when is_key(table_name) and is_atom(repo) and is_list(opts) do
     if Enum.empty?(items) do
-      {:ok, :empty}
+      :empty
     else
       # Get columns from the first item
-      columns = items |> List.first() |> Map.keys()
+      {first, rest} = take_first(items)
+      columns = Map.keys(first)
       columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
+
+      items = Stream.concat([first], rest)
 
       stream =
         Ecto.Adapters.SQL.stream(
@@ -113,34 +116,63 @@ defmodule Blink.Adapter.Postgres do
         items
         |> maybe_chunk(batch_size)
         |> Enum.into(stream, fn chunk ->
-          chunk
-          |> Enum.map(fn row ->
-            row_iodata =
-              columns
-              |> Enum.map(fn col -> format_csv_value(Map.get(row, col)) end)
-              |> Enum.intersperse("|")
+          Enum.map(chunk, fn row ->
+            ["|" | row_iodata] =
+              Enum.flat_map(columns, fn col -> ["|", format_csv_value(Map.fetch!(row, col))] end)
 
             [row_iodata, "\n"]
           end)
-          |> IO.iodata_to_binary()
         end)
 
-      {:ok, result}
+      result
     end
-  rescue
-    error -> {:error, error}
   end
 
-  defp maybe_chunk(items, :infinity), do: [items]
+  defp maybe_chunk(items, :infinity), do: [Enum.to_list(items)]
 
   defp maybe_chunk(items, batch_size) when is_integer(batch_size) and batch_size > 0 do
     Stream.chunk_every(items, batch_size)
   end
 
   defp format_csv_value(nil), do: "\\N"
-  defp format_csv_value(value) when is_binary(value), do: value
-  defp format_csv_value(value), do: to_string(value)
+  defp format_csv_value("\\N"), do: "\\\\N"
+  defp format_csv_value(value) when is_binary(value), do: escape(value)
+  defp format_csv_value(value), do: escape(to_string(value))
+
+  defp escape(string) do
+    if Regex.match?(~r/\||"/, string) do
+      [?", String.replace(string, "\"", "\"\""), ?"]
+    else
+      string
+    end
+  end
 
   defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
   defp key_to_string(key) when is_binary(key), do: key
+
+  def take_first(stream) do
+    streamf = fn acc, func -> Enumerable.reduce(stream, acc, func) end
+    clos = fn acc -> streamf.(acc, fn elem, _acc -> {:suspend, elem} end) end
+    {:suspended, first, clos} = clos.({:cont, []})
+    {first, &enumerable_reduce(clos, &1, &2)}
+  end
+
+  def enumerable_reduce(clos, {:halt, acc}, _fun) do
+    clos.({:halt, acc})
+  end
+
+  def enumerable_reduce(clos, {:suspend, acc}, fun) do
+    {:suspended, acc, &enumerable_reduce(clos, &1, fun)}
+  end
+
+  def enumerable_reduce(clos, {:cont, acc}, fun) do
+    case clos.({:cont, []}) do
+      {:suspended, value, clos} ->
+        acc = fun.(value, acc)
+        enumerable_reduce(clos, acc, fun)
+
+      {tag, _} ->
+        {tag, acc}
+    end
+  end
 end
