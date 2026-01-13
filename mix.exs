@@ -76,7 +76,7 @@ defmodule Blink.MixProject do
 
   defp docs do
     [
-      main: "readme",
+      main: "getting_started",
       source_ref: "v#{@version}",
       source_url: "https://github.com/nerds-and-company/blink",
       extras: [
