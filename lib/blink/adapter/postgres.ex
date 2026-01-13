@@ -138,8 +138,16 @@ defmodule Blink.Adapter.Postgres do
   end
 
   defp format_csv_value(nil), do: "\\N"
-  defp format_csv_value(value) when is_binary(value), do: value
-  defp format_csv_value(value), do: to_string(value)
+  defp format_csv_value(value) when is_binary(value), do: escape_csv(value)
+  defp format_csv_value(value), do: escape_csv(to_string(value))
+
+  defp escape_csv(value) do
+    if String.contains?(value, ["|", "\"", "\n", "\r", "\\"]) do
+      ["\"", String.replace(value, "\"", "\"\""), "\""]
+    else
+      value
+    end
+  end
 
   defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
   defp key_to_string(key) when is_binary(key), do: key

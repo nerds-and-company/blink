@@ -1,0 +1,6 @@
+id,name,email
+1,"Alice|Bob",test@example.com
+2,"Say ""Hello""",quoted@example.com
+3,"Line1
+Line2",newline@example.com
+4,"C:\Users\Test",backslash@example.com

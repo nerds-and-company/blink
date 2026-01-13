@@ -18,6 +18,293 @@ defmodule BlinkIntegrationTest do
     :ok
   end
 
+  describe "special characters in values" do
+    test "handles pipe delimiter in strings" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "Alice|Bob", email: "test|pipe@example.com"},
+            %{id: 2, name: "a|b|c|d", email: "many|pipes|here@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice|Bob", "test|pipe@example.com"},
+               {2, "a|b|c|d", "many|pipes|here@example.com"}
+             ]
+    end
+
+    test "handles double quotes in strings" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "Alice \"The Great\"", email: "alice@example.com"},
+            %{id: 2, name: "Say \"Hello\"", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice \"The Great\"", "alice@example.com"},
+               {2, "Say \"Hello\"", "bob@example.com"}
+             ]
+    end
+
+    test "handles newlines in strings" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "Alice\nNewline", email: "alice@example.com"},
+            %{id: 2, name: "Line1\r\nLine2", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice\nNewline", "alice@example.com"},
+               {2, "Line1\r\nLine2", "bob@example.com"}
+             ]
+    end
+
+    test "handles backslashes in strings" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "C:\\Users\\Alice", email: "alice@example.com"},
+            %{id: 2, name: "path\\to\\file", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "C:\\Users\\Alice", "alice@example.com"},
+               {2, "path\\to\\file", "bob@example.com"}
+             ]
+    end
+
+    test "handles literal backslash-N (not NULL)" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "\\N is not null", email: "alice@example.com"},
+            %{id: 2, name: "test\\Nvalue", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "\\N is not null", "alice@example.com"},
+               {2, "test\\Nvalue", "bob@example.com"}
+             ]
+    end
+
+    test "handles combined special characters" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "Alice|\"Bob\"\nCharlie", email: "test@example.com"},
+            %{id: 2, name: "C:\\path|\"quoted\"\r\n\\N", email: "complex@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice|\"Bob\"\nCharlie", "test@example.com"},
+               {2, "C:\\path|\"quoted\"\r\n\\N", "complex@example.com"}
+             ]
+    end
+
+    test "handles using from_csv with special characters" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          fixtures_path = Path.expand("../fixtures", __DIR__)
+          path = Path.join(fixtures_path, "users_special_chars.csv")
+          Blink.from_csv(path, transform: &Map.take(&1, ~w[id name email]))
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice|Bob", "test@example.com"},
+               {2, "Say \"Hello\"", "quoted@example.com"},
+               {3, "Line1\nLine2", "newline@example.com"},
+               {4, "C:\\Users\\Test", "backslash@example.com"}
+             ]
+    end
+
+    test "handles empty strings (not NULL)" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "", email: "empty@example.com"},
+            %{id: 2, name: "Bob", email: ""}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "", "empty@example.com"},
+               {2, "Bob", ""}
+             ]
+    end
+
+    test "handles NULL values" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: nil, email: "null_name@example.com"},
+            %{id: 2, name: "Bob", email: nil}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, nil, "null_name@example.com"},
+               {2, "Bob", nil}
+             ]
+    end
+
+    test "handles unicode and emojis" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "日本語", email: "japanese@example.com"},
+            %{id: 2, name: "Ελληνικά", email: "greek@example.com"},
+            %{id: 3, name: "🎉🚀💻", email: "emoji@example.com"},
+            %{id: 4, name: "Müller", email: "umlaut@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "日本語", "japanese@example.com"},
+               {2, "Ελληνικά", "greek@example.com"},
+               {3, "🎉🚀💻", "emoji@example.com"},
+               {4, "Müller", "umlaut@example.com"}
+             ]
+    end
+  end
+
   describe "insert/2" do
     test "inserts data into table" do
       defmodule Dummy do

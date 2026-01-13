@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Fixed CSV escaping in PostgreSQL COPY adapter: strings containing special characters (pipe `|`, double quotes `"`, newlines, carriage returns, backslashes) are now properly escaped to prevent data corruption
+
 ## [0.4.1] - 2026-01-11
 
 ### Added
