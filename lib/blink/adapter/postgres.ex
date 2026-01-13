@@ -140,9 +140,8 @@ defmodule Blink.Adapter.Postgres do
   defp format_csv_value(value), do: escape(to_string(value))
 
   defp escape(string) do
-    if String.contains?(string, "|") do
-      # "
-      [?", String.replace(string, "\"", "\\\""), ?"]
+    if Regex.match?(~r/\||"/, string) do
+      [?", String.replace(string, "\"", "\"\""), ?"]
     else
       string
     end

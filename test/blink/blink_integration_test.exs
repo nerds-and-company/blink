@@ -139,6 +139,35 @@ defmodule BlinkIntegrationTest do
              ]
     end
 
+    test "inserts strings with \" quotes" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{id: 1, name: "Ali\"ce", email: "alice@example.com"},
+            %{id: 2, name: "B\"o\"b", email: "bob@example.com"}
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      # Verify data was inserted
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Ali\"ce", "alice@example.com"},
+               {2, "B\"o\"b", "bob@example.com"}
+             ]
+    end
+
     test "inserts data into tables with foreign key constraints" do
       defmodule Dummy do
         use Blink

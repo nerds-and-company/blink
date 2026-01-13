@@ -275,13 +275,13 @@ defmodule Blink do
 
   A list of maps, where each map represents a row from the CSV file.
   """
-  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t(map())
   defdelegate from_csv(path, opts \\ []), to: Blink.CSV
 
   @doc """
   Same as `from_csv/2`, but returns a lazily evaluated stream
   """
-  @spec stream_from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  @spec stream_from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t(map())
   defdelegate stream_from_csv(path, opts \\ []), to: Blink.CSV
 
   @doc """
@@ -318,6 +318,6 @@ defmodule Blink do
 
   A list of maps, where each map represents an object from the JSON array.
   """
-  @spec from_json(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  @spec from_json(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t(map())
   defdelegate from_json(path, opts \\ []), to: Blink.JSON
 end
