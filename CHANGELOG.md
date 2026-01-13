@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Added `:timeout` option to `insert/3` to configure transaction timeout for large datasets (fixes #6)
+
 ### Fixed
 - Fixed CSV escaping in PostgreSQL COPY adapter: strings containing special characters (pipe `|`, double quotes `"`, newlines, carriage returns, backslashes) are now properly escaped to prevent data corruption
 

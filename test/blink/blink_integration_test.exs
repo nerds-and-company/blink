@@ -545,4 +545,26 @@ defmodule BlinkIntegrationTest do
              ]
     end
   end
+
+  describe "insert/3 with timeout option" do
+    test "accepts custom timeout" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> add_table("users")
+          |> insert(Repo, timeout: 1)
+        end
+
+        def table(_store, "users") do
+          # Sleep to ensure we exceed the 1ms timeout
+          Process.sleep(50)
+          [%{id: 1, name: "Slow", email: "slow@example.com"}]
+        end
+      end
+
+      assert {:error, _reason} = Dummy.call()
+    end
+  end
 end

@@ -107,22 +107,44 @@ defmodule Blink.Store do
   Ecto.Adapters.Postgres).
 
   Data stored in the Store's context is ignored.
+
+  ## Options
+
+    * `:batch_size` - Number of rows to send per batch (default: 900). Set to
+      `:infinity` to disable batching.
+    * `:timeout` - The time in milliseconds to wait for the transaction to
+      complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
+      the timeout.
+
+  ## Examples
+
+      # With custom timeout for large datasets
+      insert(store, MyApp.Repo, timeout: 60_000)
+
+      # Disable timeout entirely
+      insert(store, MyApp.Repo, timeout: :infinity)
+
   """
   @spec insert(store :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
           {:ok, any()} | {:error, any()}
   def insert(%__MODULE__{} = store, repo, opts \\ []) when is_atom(repo) do
-    repo.transact(fn ->
-      Enum.each(store.table_order, fn table_name ->
-        items = Map.fetch!(store.tables, table_name)
+    timeout = Keyword.get(opts, :timeout, 15_000)
 
-        case Blink.copy_to_table(items, table_name, repo, opts) do
-          {:ok, _} -> :ok
-          {:error, reason} -> raise reason
-        end
-      end)
+    repo.transact(
+      fn ->
+        Enum.each(store.table_order, fn table_name ->
+          items = Map.fetch!(store.tables, table_name)
 
-      {:ok, :inserted}
-    end)
+          case Blink.copy_to_table(items, table_name, repo, opts) do
+            {:ok, _} -> :ok
+            {:error, reason} -> raise reason
+          end
+        end)
+
+        {:ok, :inserted}
+      end,
+      timeout: timeout
+    )
   rescue
     e -> {:error, e}
   end
