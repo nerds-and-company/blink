@@ -5,6 +5,9 @@
 ### Added
 - Added `:timeout` option to `insert/3` to configure transaction timeout for large datasets (fixes #6)
 
+### Changed
+- **Breaking:** Changed default `batch_size` from `900` to `:infinity`. This improves performance by default but might use more memory.
+
 ### Fixed
 - Fixed CSV escaping in PostgreSQL COPY adapter: strings containing special characters (pipe `|`, double quotes `"`, newlines, carriage returns, backslashes) are now properly escaped to prevent data corruption
 

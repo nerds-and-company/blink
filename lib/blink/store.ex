@@ -110,8 +110,9 @@ defmodule Blink.Store do
 
   ## Options
 
-    * `:batch_size` - Number of rows to send per batch (default: 900). Set to
-      `:infinity` to disable batching.
+    * `:batch_size` - Number of rows to send per batch (default: `:infinity`).
+      Set to an integer to enable batching, which might help to reduce memory
+      usage during data insertion.
     * `:timeout` - The time in milliseconds to wait for the transaction to
       complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
       the timeout.

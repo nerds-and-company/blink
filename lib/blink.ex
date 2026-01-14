@@ -135,7 +135,7 @@ defmodule Blink do
   defmacro __using__(_) do
     quote do
       @behaviour Blink
-      @default_batch_size 900
+      @default_batch_size :infinity
 
       import Store, only: [is_key: 1, new: 0]
 
@@ -203,7 +203,7 @@ defmodule Blink do
     * `repo` - An Ecto repository module.
     * `opts` - Keyword list of options:
       * `:adapter` - The adapter module to use. Defaults to `Blink.Adapter.Postgres`.
-      * `:batch_size` - Number of rows to send per batch (default: 900)
+      * `:batch_size` - Number of rows to send per batch (default: `:infinity`)
 
   ## Returns
 

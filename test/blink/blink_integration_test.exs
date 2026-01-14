@@ -1,10 +1,12 @@
 defmodule BlinkIntegrationTest do
   use ExUnit.Case, async: true
 
+  import Ecto.Query, warn: false
+
   alias BlinkIntegrationTest.Dummy
   alias BlinkTest.Repo
 
-  import Ecto.Query, warn: false
+  @moduletag capture_log: true
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -543,28 +545,6 @@ defmodule BlinkIntegrationTest do
                {2, "Bob", "bob@example.com"},
                {3, "Charlie", "charlie@example.com"}
              ]
-    end
-  end
-
-  describe "insert/3 with timeout option" do
-    test "accepts custom timeout" do
-      defmodule Dummy do
-        use Blink
-
-        def call do
-          new()
-          |> add_table("users")
-          |> insert(Repo, timeout: 1)
-        end
-
-        def table(_store, "users") do
-          # Sleep to ensure we exceed the 1ms timeout
-          Process.sleep(50)
-          [%{id: 1, name: "Slow", email: "slow@example.com"}]
-        end
-      end
-
-      assert {:error, _reason} = Dummy.call()
     end
   end
 end

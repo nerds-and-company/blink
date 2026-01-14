@@ -25,7 +25,7 @@ defmodule Blink.Adapter.Postgres do
 
   import Blink.Store, only: [is_key: 1]
 
-  @default_batch_size 900
+  @default_batch_size :infinity
 
   @doc """
   Executes a bulk copy operation using PostgreSQL's COPY command.
@@ -57,9 +57,7 @@ defmodule Blink.Adapter.Postgres do
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
     * `opts` - Keyword list of options:
-      * `:batch_size` - Number of rows to send per batch (default: 900). Set to
-        `:infinity` to disable batching and send all rows at once for maximum
-        speed.
+      * `:batch_size` - Number of rows to send per batch (default: `:infinity`).
 
   ## Returns
 
