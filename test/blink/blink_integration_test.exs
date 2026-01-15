@@ -451,70 +451,6 @@ defmodule BlinkIntegrationTest do
   end
 
   describe "insert/3" do
-    test "inserts with custom batch size" do
-      defmodule Dummy do
-        use Blink
-
-        def call do
-          new()
-          |> with_table("users")
-          |> run(Repo, batch_size: 2)
-        end
-
-        def table(_store, "users") do
-          for i <- 1..5 do
-            %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
-          end
-        end
-      end
-
-      assert {:ok, _} = Dummy.call()
-
-      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
-
-      assert length(users) == 5
-
-      assert users == [
-               {1, "User 1", "user1@example.com"},
-               {2, "User 2", "user2@example.com"},
-               {3, "User 3", "user3@example.com"},
-               {4, "User 4", "user4@example.com"},
-               {5, "User 5", "user5@example.com"}
-             ]
-    end
-
-    test "inserts with batching disabled" do
-      defmodule Dummy do
-        use Blink
-
-        def call do
-          new()
-          |> with_table("users")
-          |> run(Repo, batch_size: :infinity)
-        end
-
-        def table(_store, "users") do
-          for i <- 1..5 do
-            %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
-          end
-        end
-      end
-
-      assert {:ok, _} = Dummy.call()
-
-      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
-
-      assert length(users) == 5
-
-      assert users == [
-               {1, "User 1", "user1@example.com"},
-               {2, "User 2", "user2@example.com"},
-               {3, "User 3", "user3@example.com"},
-               {4, "User 4", "user4@example.com"},
-               {5, "User 5", "user5@example.com"}
-             ]
-    end
-
     test "handles maps with inconsistent key order" do
       defmodule Dummy do
         use Blink
@@ -545,6 +481,112 @@ defmodule BlinkIntegrationTest do
                {2, "Bob", "bob@example.com"},
                {3, "Charlie", "charlie@example.com"}
              ]
+    end
+  end
+
+  describe "stream support" do
+    test "inserts data from a stream" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> run(Repo)
+        end
+
+        def table(_store, "users") do
+          Stream.map(1..5, fn i ->
+            %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
+          end)
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "User 1", "user1@example.com"},
+               {2, "User 2", "user2@example.com"},
+               {3, "User 3", "user3@example.com"},
+               {4, "User 4", "user4@example.com"},
+               {5, "User 5", "user5@example.com"}
+             ]
+    end
+
+    test "inserts data from dependent streams" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> with_table("posts")
+          |> run(Repo)
+        end
+
+        def table(_store, "users") do
+          Stream.map(1..3, fn i ->
+            %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
+          end)
+        end
+
+        def table(store, "posts") do
+          Stream.flat_map(store.tables["users"], fn user ->
+            for i <- 1..2 do
+              %{
+                id: (user.id - 1) * 2 + i,
+                title: "Post #{i} by #{user.name}",
+                body: "Content",
+                user_id: user.id
+              }
+            end
+          end)
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
+
+      assert users == [
+               {1, "User 1"},
+               {2, "User 2"},
+               {3, "User 3"}
+             ]
+
+      posts = Repo.all(from(p in "posts", select: {p.id, p.title, p.user_id}, order_by: p.id))
+
+      assert posts == [
+               {1, "Post 1 by User 1", 1},
+               {2, "Post 2 by User 1", 1},
+               {3, "Post 1 by User 2", 2},
+               {4, "Post 2 by User 2", 2},
+               {5, "Post 1 by User 3", 3},
+               {6, "Post 2 by User 3", 3}
+             ]
+    end
+
+    test "handles empty stream" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> run(Repo)
+        end
+
+        def table(_store, "users") do
+          Stream.map([], fn x -> x end)
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: count()))
+      assert users == [0]
     end
   end
 end

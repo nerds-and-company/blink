@@ -56,7 +56,7 @@ defmodule Blink.Seeder do
   @spec with_table(
           seeder :: t(),
           table_name :: key(),
-          builder :: (t(), key() -> [map()])
+          builder :: (t(), key() -> Enumerable.t())
         ) :: t()
   def with_table(%__MODULE__{} = seeder, table_name, builder)
       when is_key(table_name) and is_function(builder, 2) do
@@ -110,9 +110,6 @@ defmodule Blink.Seeder do
 
   ## Options
 
-    * `:batch_size` - Number of rows to send per batch (default: `:infinity`).
-      Set to an integer to enable batching, which might help to reduce memory
-      usage during data insertion.
     * `:timeout` - The time in milliseconds to wait for the transaction to
       complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
       the timeout.

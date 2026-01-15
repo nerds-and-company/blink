@@ -4,9 +4,10 @@
 
 ### Added
 - Added `:timeout` option to `run/3` to configure transaction timeout
+- Added stream support: `table/2` callbacks can now return streams in addition to lists, enabling memory-efficient seeding of large datasets
 
 ### Changed
-- **Breaking:** Changed default `batch_size` from `900` to `:infinity`. This improves performance by default but might use more memory.
+- **Breaking:** Removed `batch_size` option from `run/3` and the PostgreSQL adapter
 - **Breaking:** Renamed `Blink.Store` to `Blink.Seeder`
 - **Breaking:** Renamed `Blink.Seeder.insert/3` to `Blink.Seeder.run/3`
 - **Breaking:** Renamed `add_table/2` to `with_table/2`

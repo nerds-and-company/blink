@@ -18,14 +18,11 @@ defmodule Blink.Adapter.Postgres do
   ## Implementation
 
   The adapter implements the `Blink.Adapter` behavior by streaming data to
-  PostgreSQL in CSV format using the pipe delimiter. It batches data to minimize
-  memory usage while maintaining high performance.
+  PostgreSQL in CSV format using the pipe delimiter.
   """
   @behaviour Blink.Adapter
 
   import Blink.Seeder, only: [is_key: 1]
-
-  @default_batch_size :infinity
 
   @doc """
   Executes a bulk copy operation using PostgreSQL's COPY command.
@@ -34,7 +31,7 @@ defmodule Blink.Adapter.Postgres do
   """
   @impl true
   @spec call(
-          items :: [map()],
+          items :: Enumerable.t(),
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
@@ -44,35 +41,36 @@ defmodule Blink.Adapter.Postgres do
   end
 
   @doc """
-  Copies a list of items into a database table using PostgreSQL's COPY command.
+  Copies items into a database table using PostgreSQL's COPY command.
 
   This function uses PostgreSQL's `COPY FROM STDIN` command for efficient bulk
-  insertion of data. Items are streamed to the database in batches to minimize
-  memory usage.
+  insertion of data.
 
   ## Parameters
 
-    * `items` - A list of maps where each map represents a row to insert. All
-      maps must have the same keys, which correspond to the table columns.
+    * `items` - An enumerable (list or stream) of maps where each map represents
+      a row to insert. All maps must have the same keys, which correspond to the
+      table columns. Using a stream allows for memory-efficient seeding of large
+      datasets.
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
-    * `opts` - Keyword list of options:
-      * `:batch_size` - Number of rows to send per batch (default: `:infinity`).
+    * `opts` - Keyword list of options (currently unused).
 
   ## Returns
 
-    * `{:ok, :empty}` - When the items list is empty
+    * `{:ok, :empty}` - When the items enumerable is empty
     * `{:ok, result}` - When the copy operation succeeds
     * `{:error, exception}` - When the copy operation fails
 
   ## Examples
 
       iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
-      iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
+      iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo)
       {:ok, _result}
 
-      # Disable batching for maximum speed (uses more memory)
-      iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo, batch_size: :infinity)
+      # Using a stream for memory-efficient seeding
+      iex> stream = Stream.map(1..1_000_000, fn i -> %{id: i, name: "User \#{i}"} end)
+      iex> Blink.Adapter.Postgres.copy_to_table(stream, "users", MyApp.Repo)
       {:ok, _result}
 
   ## Notes
@@ -81,58 +79,46 @@ defmodule Blink.Adapter.Postgres do
   as `\\N` in the CSV format.
   """
   @spec copy_to_table(
-          items :: [map()],
+          items :: Enumerable.t(),
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, Exception.t()}
   def copy_to_table(items, table_name, repo, opts \\ [])
-      when is_list(items) and is_key(table_name) and is_atom(repo) and is_list(opts) do
-    if Enum.empty?(items) do
-      {:ok, :empty}
-    else
-      # Get columns from the first item
-      columns = items |> List.first() |> Map.keys()
-      columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
+      when is_key(table_name) and is_atom(repo) and is_list(opts) do
+    # Take the first item to get columns; this works for both lists and streams
+    case Enum.take(items, 1) do
+      [] ->
+        {:ok, :empty}
 
-      stream =
-        Ecto.Adapters.SQL.stream(
-          repo,
-          """
-          COPY #{key_to_string(table_name)} (#{columns_string})
-          FROM STDIN
-          WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
-          """
-        )
+      [first | _] ->
+        columns = Map.keys(first)
+        columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
 
-      batch_size = Keyword.get(opts, :batch_size, @default_batch_size)
+        repo_stream =
+          Ecto.Adapters.SQL.stream(
+            repo,
+            """
+            COPY #{key_to_string(table_name)} (#{columns_string})
+            FROM STDIN
+            WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
+            """
+          )
 
-      result =
-        items
-        |> maybe_chunk(batch_size)
-        |> Enum.into(stream, fn chunk ->
-          chunk
-          |> Enum.map(fn row ->
+        result =
+          Enum.into(items, repo_stream, fn row ->
             row_iodata =
               columns
               |> Enum.map(fn col -> format_csv_value(Map.get(row, col)) end)
               |> Enum.intersperse("|")
 
-            [row_iodata, "\n"]
+            IO.iodata_to_binary([row_iodata, "\n"])
           end)
-          |> IO.iodata_to_binary()
-        end)
 
-      {:ok, result}
+        {:ok, result}
     end
   rescue
     error -> {:error, error}
-  end
-
-  defp maybe_chunk(items, :infinity), do: [items]
-
-  defp maybe_chunk(items, batch_size) when is_integer(batch_size) and batch_size > 0 do
-    Stream.chunk_every(items, batch_size)
   end
 
   defp format_csv_value(nil), do: "\\N"

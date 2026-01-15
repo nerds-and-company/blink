@@ -8,7 +8,7 @@ All adapters must implement the `Blink.Adapter` behavior, which requires a singl
 
 ```elixir
 @callback call(
-  items :: [map()],
+  items :: Enumerable.t(),
   table_name :: binary() | atom(),
   repo :: Ecto.Repo.t(),
   opts :: Keyword.t()
@@ -17,10 +17,10 @@ All adapters must implement the `Blink.Adapter` behavior, which requires a singl
 
 The `call/4` function receives:
 
-- `items` - List of maps to bulk insert into table
+- `items` - An enumerable (list or stream) of maps to bulk insert into table
 - `table_name` - Target table name
 - `repo` - Ecto repository module
-- `opts` - Options like `:batch_size`
+- `opts` - Adapter-specific options
 
 Example:
 

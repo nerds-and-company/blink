@@ -28,13 +28,12 @@ defmodule Blink.Adapter do
 
   ## Parameters
 
-    * `items` - A list of maps where each map represents a row to insert. All
-      maps must have the same keys, which correspond to the table columns.
+    * `items` - An enumerable (list or stream) of maps where each map represents
+      a row to insert. All maps must have the same keys, which correspond to the
+      table columns.
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module.
-    * `opts` - Keyword list of options. Common options include:
-      * `:batch_size` - Number of rows to send per batch
-      * Other adapter-specific options
+    * `opts` - Keyword list of adapter-specific options.
 
   ## Returns
 
@@ -42,7 +41,7 @@ defmodule Blink.Adapter do
     * `{:error, reason}` - When the copy operation fails
   """
   @callback call(
-              items :: [map()],
+              items :: Enumerable.t(),
               table_name :: Blink.Seeder.key(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
@@ -55,7 +54,7 @@ defmodule Blink.Adapter do
   The adapter is selected based on the `:adapter` option in `opts`.
   """
   @spec copy_to_table(
-          items :: [map()],
+          items :: Enumerable.t(),
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()

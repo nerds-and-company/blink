@@ -119,7 +119,7 @@ defmodule BlinkTest do
         def call do
           new()
           |> with_table("users")
-          |> run(BlinkTest.Repo, batch_size: 500)
+          |> run(BlinkTest.Repo, timeout: 60_000)
         end
 
         def table(_store, "users") do
@@ -129,7 +129,7 @@ defmodule BlinkTest do
         def run(seeder, repo, opts) do
           assert %Blink.Seeder{} = seeder
           assert BlinkTest.Repo = repo
-          assert [batch_size: 500] = opts
+          assert [timeout: 60_000] = opts
 
           :some_custom_result
         end

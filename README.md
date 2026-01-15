@@ -137,24 +137,6 @@ end
 
 CSV files use the first row as headers by default. Both helpers accept a `:transform` option for type conversion or data manipulation.
 
-### Configuring Batch Size
-
-Adjust batch size:
-
-```elixir
-new()
-|> with_table("users")
-|> run(MyApp.Repo, batch_size: 5_000)  # Default: 900
-```
-
-Or disable batching:
-
-```elixir
-new()
-|> with_table("users")
-|> run(MyApp.Repo, batch_size: :infinity)
-```
-
 ### Using with ExMachina
 
 Combine ExMachina's factory pattern with Blink's fast insertion:

@@ -64,7 +64,7 @@ defmodule Blink do
           new()
           |> with_table("users")
           |> with_context("post_ids")
-          |> run(MyApp.Repo, batch_size: 1_200)
+          |> run(MyApp.Repo)
         end
 
         def table(_store, "users") do
@@ -103,7 +103,7 @@ defmodule Blink do
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback table(store :: Seeder.t(), table_name :: Seeder.key()) :: [map()]
+  @callback table(store :: Seeder.t(), table_name :: Seeder.key()) :: Enumerable.t()
 
   @doc """
   Builds and returns the data to be stored under a context key in the given
@@ -136,7 +136,6 @@ defmodule Blink do
   defmacro __using__(_) do
     quote do
       @behaviour Blink
-      @default_batch_size :infinity
 
       import Seeder, only: [is_key: 1, new: 0]
 
@@ -165,7 +164,7 @@ defmodule Blink do
       @spec table(
               store :: Seeder.t(),
               table_name :: Seeder.key()
-            ) :: [map()]
+            ) :: Enumerable.t()
       def table(store, table_name)
 
       @impl true
@@ -190,21 +189,20 @@ defmodule Blink do
   end
 
   @doc """
-  Copies a list of items into a database table using database-specific bulk copy commands.
+  Copies items into a database table using database-specific bulk copy commands.
 
   This function provides an efficient way to insert large amounts of data by using
-  database-specific bulk copy commands. Items are streamed to the database in batches
-  to minimize memory usage.
+  database-specific bulk copy commands.
 
   ## Parameters
 
-    * `items` - A list of maps where each map represents a row to insert. All maps
-      must have the same keys, which correspond to the table columns.
+    * `items` - An enumerable (list or stream) of maps where each map represents a
+      row to insert. All maps must have the same keys, which correspond to the table
+      columns. Using a stream allows for memory-efficient seeding of large datasets.
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module.
     * `opts` - Keyword list of options:
       * `:adapter` - The adapter module to use. Defaults to `Blink.Adapter.Postgres`.
-      * `:batch_size` - Number of rows to send per batch (default: `:infinity`)
 
   ## Returns
 
@@ -214,22 +212,23 @@ defmodule Blink do
   ## Examples
 
       iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
-      iex> copy_to_table(items, "users", MyApp.Repo, batch_size: 1000)
+      iex> copy_to_table(items, "users", MyApp.Repo)
       {:ok, _result}
 
-      # Using a specific adapter
-      iex> copy_to_table(items, "users", MyApp.Repo, adapter: Some.Custom.Adapter)
+      # Using a stream for memory-efficient seeding
+      iex> stream = Stream.map(1..1_000_000, fn i -> %{id: i, name: "User \#{i}"} end)
+      iex> copy_to_table(stream, "users", MyApp.Repo)
       {:ok, _result}
 
   ## Notes
 
   The function assumes all items have the same structure. Column names are
-  extracted from the first item in the list.
+  extracted from the first item in the enumerable.
 
   Currently only PostgreSQL is supported via `Blink.Adapter.Postgres`.
   """
   @spec copy_to_table(
-          items :: [map()],
+          items :: Enumerable.t(),
           table_name :: Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
