@@ -123,6 +123,7 @@ defmodule Blink.Adapter.Postgres do
 
   defp format_csv_value(nil), do: "\\N"
   defp format_csv_value(value) when is_binary(value), do: escape_csv(value)
+  defp format_csv_value(value) when is_map(value), do: escape_csv(Jason.encode!(value))
   defp format_csv_value(value), do: escape_csv(to_string(value))
 
   defp escape_csv(value) do

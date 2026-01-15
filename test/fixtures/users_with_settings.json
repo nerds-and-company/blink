@@ -1,0 +1,4 @@
+[
+  {"id": 1, "name": "Alice", "settings": {"theme": "dark", "notifications": true}},
+  {"id": 2, "name": "Bob", "settings": {"theme": "light", "notifications": false}}
+]

@@ -450,6 +450,83 @@ defmodule BlinkIntegrationTest do
     end
   end
 
+  describe "JSONB columns" do
+    test "inserts nested maps as JSONB" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> run(Repo)
+        end
+
+        def table(_store, "users") do
+          [
+            %{
+              id: 1,
+              name: "Alice",
+              email: "alice@example.com",
+              settings: %{"theme" => "dark", "notifications" => true}
+            },
+            %{
+              id: 2,
+              name: "Bob",
+              email: "bob@example.com",
+              settings: %{"theme" => "light", "notifications" => false}
+            }
+          ]
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice", %{"theme" => "dark", "notifications" => true}},
+               {2, "Bob", %{"theme" => "light", "notifications" => false}}
+             ]
+    end
+
+    test "inserts nested maps from JSON file as JSONB" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> run(Repo)
+        end
+
+        def table(_store, "users") do
+          fixtures_path = Path.expand("../fixtures", __DIR__)
+          path = Path.join(fixtures_path, "users_with_settings.json")
+
+          Blink.from_json(path,
+            transform: fn row ->
+              %{
+                id: row["id"],
+                name: row["name"],
+                email: "#{String.downcase(row["name"])}@example.com",
+                settings: row["settings"]
+              }
+            end
+          )
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice", %{"theme" => "dark", "notifications" => true}},
+               {2, "Bob", %{"theme" => "light", "notifications" => false}}
+             ]
+    end
+  end
+
   describe "insert/3" do
     test "handles maps with inconsistent key order" do
       defmodule Dummy do

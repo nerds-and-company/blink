@@ -8,6 +8,7 @@ defmodule BlinkTest.Repo.Migrations.CreateTestTables do
       add :id, :integer, primary_key: true
       add :name, :string
       add :email, :string
+      add :settings, :map
     end
 
     create table(:posts, primary_key: false) do
