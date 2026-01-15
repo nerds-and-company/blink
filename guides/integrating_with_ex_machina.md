@@ -57,11 +57,11 @@ defmodule Blog.Seeders.BlogSeeder do
 
   def call do
     new()
-    |> add_table("users")
-    |> insert(Blog.Repo)
+    |> with_table("users")
+    |> run(Blog.Repo)
   end
 
-  def table(_store, "users") do
+  def table(_seeder, "users") do
     for i <- 1..1000 do
       user = build(:user)
 

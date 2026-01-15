@@ -25,11 +25,11 @@ defmodule Blog.Seeders.BlogSeeder do
 
   def call do
     new()
-    |> add_table("users")
-    |> insert(Blog.Repo)
+    |> with_table("users")
+    |> run(Blog.Repo)
   end
 
-  def table(_store, "users") do
+  def table(_seeder, "users") do
     Blink.from_csv("priv/seed_data/users.csv")
   end
 end
@@ -42,7 +42,7 @@ By default, `from_csv/2` reads the first row as column headers and returns a lis
 Use the `:transform` option to convert types and add required fields:
 
 ```elixir
-def table(_store, "users") do
+def table(_seeder, "users") do
   base_time = ~U[2024-01-01 00:00:00Z]
 
   Blink.from_csv("priv/seed_data/users.csv",
@@ -63,7 +63,7 @@ The `transform` function receives each row as a map and should return the transf
 If your CSV file doesn't have a header row, provide the column names explicitly:
 
 ```elixir
-def table(_store, "users") do
+def table(_seeder, "users") do
   Blink.from_csv("priv/seed_data/users_no_headers.csv",
     headers: ["id", "name", "email"]
   )
@@ -75,7 +75,7 @@ end
 You can use both options together:
 
 ```elixir
-def table(_store, "users") do
+def table(_seeder, "users") do
   Blink.from_csv("priv/seed_data/users_no_headers.csv",
     headers: ["id", "name", "email"],
     transform: fn row ->
@@ -104,7 +104,7 @@ Create a JSON file at `priv/seed_data/products.json`:
 Load it in your seeder:
 
 ```elixir
-def table(_store, "products") do
+def table(_seeder, "products") do
   Blink.from_json("priv/seed_data/products.json")
 end
 ```
@@ -116,7 +116,7 @@ The JSON file must contain an array of objects at the root level. Each object be
 Use the `:transform` option to add timestamps or modify fields:
 
 ```elixir
-def table(_store, "products") do
+def table(_seeder, "products") do
   Blink.from_json("priv/seed_data/products.json",
     transform: fn product ->
       Map.merge(product, %{

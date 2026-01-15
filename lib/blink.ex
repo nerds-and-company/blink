@@ -8,19 +8,19 @@ defmodule Blink do
   Blink simplifies database seeding by providing a structured way to build and
   insert records:
 
-  1. Create an empty `Store`.
+  1. Create an empty `Seeder`.
   2. Assign the records you want to insert to each database table.
   3. Bulk-insert the records into your database.
 
-  ## Stores
+  ## Seeders
 
-  Stores are the central data unit in Blink. A `Store` is a struct that holds
+  Seeders are the central data unit in Blink. A `Seeder` is a struct that holds
   the records you want to seed, along with any contextual data you need during
   the seeding process but do not want to insert into the database.
 
-  A `Store` struct contains the keys `tables` and `context`:
+  A `Seeder` struct contains the keys `tables` and `context`:
 
-      Blink.Store{
+      Blink.Seeder{
         tables: %{
           "table_name" => [...]
         },
@@ -35,24 +35,25 @@ defmodule Blink do
   ### Tables
 
   A mapping of table names to lists of records. These records will be persisted
-  to the database when `insert/2` or `insert/3` are called.
+  to the database when `run/2` or `run/3` are called.
 
   ### Context
 
   Stores arbitrary data needed during the seeding process. This data is
   available when building your seeds but is not inserted into the database by
-  `insert/2` or `insert/3`.
+  `run/2` or `run/3`.
 
   ## Basic Usage
 
-  To seed your database with Blink, follow these three steps:
+  To seed your database with Blink, follow these four steps:
 
-  - **Create**: Initialize an empty store with `new/0`.
+  - **Create**: Initialize an empty seeder with `new/0`.
 
-  - **Build**: Add seed data with `add_table/2` and context data with
-    `add_context/2`.
+  - **Declare**: Declare when tables and context keys need to be added to the Seeder with `with_table/2` and `with_context/2`.
 
-  - **Insert**: Persist records to the database with `insert/2` or `insert/3`.
+  - **Build**: Define the data for each table and context key by adding `table/2` or `context/2` clauses.
+
+  - **Run**: Persist records to the database with `run/2` or `run/3`.
 
   ### Example
 
@@ -61,9 +62,9 @@ defmodule Blink do
 
         def call do
           new()
-          |> add_table("users")
-          |> add_context("post_ids")
-          |> insert(MyApp.Repo, batch_size: 1_200)
+          |> with_table("users")
+          |> with_context("post_ids")
+          |> run(MyApp.Repo, batch_size: 1_200)
         end
 
         def table(_store, "users") do
@@ -78,66 +79,66 @@ defmodule Blink do
         end
       end
 
-  ## Custom Logic for Inserting Records
+  ## Custom Logic for Running the Seeder
 
-  The functions `insert/2` and `insert/3` bulk insert the table records in a
-  `Store` into a Postgres database using Postgres' `COPY` command. You can
-  override the default implementation by defining your own `insert/2` or
-  `insert/3` function in your Blink module. Doing so you can support seeding
+  The functions `run/2` and `run/3` bulk insert the table records in a
+  `Seeder` into a Postgres database using Postgres' `COPY` command. You can
+  override the default implementation by defining your own `run/2` or
+  `run/3` function in your Blink module. Doing so you can support seeding
   databases other than Postgres.
   """
 
-  alias Blink.Store
+  alias Blink.Seeder
 
   @doc """
   Builds and returns the records to be stored under a table key in the given
-  `Store`.
+  `Seeder`.
 
-  The callback `table/2` is called by `add_table/2` internally, passing the
+  The callback `table/2` is called by `with_table/2` internally, passing the
   given database table name to `table/2`. Therefore, each table name passed to a
-  `add_table/2` clause must match a `table/2` clause.
+  `with_table/2` clause must match a `table/2` clause.
 
-  Data added to a store with `table/2` is inserted into the corresponding
-  database table when calling `insert/2` or `insert/3`.
+  Data added to a Seeder with `table/2` is inserted into the corresponding
+  database table when calling `run/2` or `run/3`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback table(store :: Store.t(), table_name :: Store.key()) :: [map()]
+  @callback table(store :: Seeder.t(), table_name :: Seeder.key()) :: [map()]
 
   @doc """
   Builds and returns the data to be stored under a context key in the given
-  `Store`.
+  `Seeder`.
 
-  The callback `context/2` is called by `add_context/2` internally, passing the
+  The callback `context/2` is called by `with_context/2` internally, passing the
   given context key to `context/2`. Therefore, each key passed to a
-  `add_context/2` clause must match a `context/2` clause.
+  `with_context/2` clause must match a `context/2` clause.
 
-  `insert/2` and `insert/3` ignore the `:context` data and only insert data from
+  `run/2` and `run/3` ignore the `:context` data and only insert data from
   `:tables`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback context(store :: Store.t(), key :: Store.key()) :: [map()]
+  @callback context(store :: Seeder.t(), key :: Seeder.key()) :: [map()]
 
   @doc """
-  Specifies how to perform a bulk insert of the seed data from a `Store` into
-  the given Ecto repository.
+  Specifies how to run the Seeder, performing a bulk insert of the seed data
+  from a `Seeder` into the given Ecto repository.
 
   This callback function is optional, since Blink ships with a default
-  implementation for Postgres databases.
+  implementation.
   """
-  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t()) :: {:ok, any()} | {:error, any()}
-  @callback insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+  @callback run(seeder :: Seeder.t(), repo :: Ecto.Repo.t()) :: {:ok, any()} | {:error, any()}
+  @callback run(seeder :: Seeder.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               {:ok, any()} | {:error, any()}
 
-  @optional_callbacks [table: 2, context: 2, insert: 2, insert: 3]
+  @optional_callbacks [table: 2, context: 2, run: 2, run: 3]
 
   defmacro __using__(_) do
     quote do
       @behaviour Blink
       @default_batch_size :infinity
 
-      import Store, only: [is_key: 1, new: 0]
+      import Seeder, only: [is_key: 1, new: 0]
 
       import Blink,
         only: [
@@ -149,40 +150,40 @@ defmodule Blink do
           copy_to_table: 4
         ]
 
-      @spec add_table(store :: Store.t(), table_name :: Store.key()) ::
-              Store.t()
-      def add_table(%Store{} = store, table_name) when is_key(table_name) do
-        Store.add_table(store, table_name, &table/2)
+      @spec with_table(seeder :: Seeder.t(), table_name :: Seeder.key()) ::
+              Seeder.t()
+      def with_table(%Seeder{} = seeder, table_name) when is_key(table_name) do
+        Seeder.with_table(seeder, table_name, &table/2)
       end
 
-      @spec add_context(store :: Store.t(), key :: Store.key()) :: Store.t()
-      def add_context(%Store{} = store, key) when is_key(key) do
-        Store.add_context(store, key, &context/2)
+      @spec with_context(seeder :: Seeder.t(), key :: Seeder.key()) :: Seeder.t()
+      def with_context(%Seeder{} = seeder, key) when is_key(key) do
+        Seeder.with_context(seeder, key, &context/2)
       end
 
       @impl true
       @spec table(
-              store :: Store.t(),
-              table_name :: Store.key()
+              store :: Seeder.t(),
+              table_name :: Seeder.key()
             ) :: [map()]
       def table(store, table_name)
 
       @impl true
-      def table(%Store{}, table_name) do
+      def table(%Seeder{}, table_name) do
         raise ArgumentError,
-              "you must define table/2 clauses that correspond with your calls to add_table/2"
+              "you must define table/2 clauses that correspond with your calls to with_table/2"
       end
 
       @impl true
-      def context(%Store{}, key) do
+      def context(%Seeder{}, key) do
         raise ArgumentError,
-              "you must define context/2 clauses that correspond with your calls to add_context/2"
+              "you must define context/2 clauses that correspond with your calls to with_context/2"
       end
 
       @impl true
-      @spec insert(store :: Store.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+      @spec run(seeder :: Seeder.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
               {:ok, any()} | {:error, any()}
-      defdelegate insert(store, repo, opts \\ []), to: Store
+      defdelegate run(seeder, repo, opts \\ []), to: Seeder
 
       defoverridable Blink
     end
@@ -229,7 +230,7 @@ defmodule Blink do
   """
   @spec copy_to_table(
           items :: [map()],
-          table_name :: Store.key(),
+          table_name :: Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, any()}

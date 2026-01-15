@@ -43,11 +43,11 @@ defmodule Blog.Seeders.BlogSeeder do
 
   def call do
     new()
-    |> add_table("users")
-    |> insert(Blog.Repo)
+    |> with_table("users")
+    |> run(Blog.Repo)
   end
 
-  def table(_store, "users") do
+  def table(_seeder, "users") do
     for i <- 1..100 do
       %{
         id: i,
@@ -64,10 +64,10 @@ end
 The seeder above does the following:
 
 1. `use Blink` - Injects Blink's functions and defines required callbacks
-2. `new()` - Creates an empty container, called a store, to hold our table data
-3. `add_table("users")` - Declares the users table
+2. `new()` - Creates an empty Seeder
+3. `with_table("users")` - Declares the users table
 4. `table/2` callback - Defines what data to insert into the users table
-5. `insert/2` - Executes the bulk insertion
+5. `run/2` - Executes the bulk insertion of table data
 
 Let's run it from IEx:
 
@@ -84,12 +84,12 @@ But what if you have relationships between tables. Let's add posts that belong t
 ```elixir
 def call do
   new()
-  |> add_table("users")
-  |> add_table("posts")  # Add the posts table
-  |> insert(Blog.Repo)
+  |> with_table("users")
+  |> with_table("posts")  # Add the posts table
+  |> run(Blog.Repo)
 end
 
-def table(_store, "users") do
+def table(_seeder, "users") do
   for i <- 1..100 do
     %{
       id: i,
@@ -101,8 +101,8 @@ def table(_store, "users") do
   end
 
 # Add another table/2 clause
-def table(store, "posts") do
-  users = store.tables["users"]  # Access previously inserted users
+def table(seeder, "posts") do
+  users = seeder.tables["users"]  # Access data destined for users table
 
   Enum.flat_map(users, fn user ->
     for i <- 1..5 do
@@ -119,7 +119,7 @@ def table(store, "posts") do
 end
 ```
 
-The key insight here is that tables are inserted in the order they're added. When defining the `"posts"` table, we can access the `"users"` table data via `store.tables["users"]`. This allows us to reference user IDs when creating posts.
+The key insight here is that tables are inserted in the order they're added. When defining the `"posts"` table, we can access the `"users"` table data via `seeder.tables["users"]`. This allows us to reference user IDs when creating posts.
 
 Run the updated seeder:
 
@@ -134,7 +134,7 @@ In this guide, we learned how to:
 
 - Create a seeder module with `use Blink`
 - Insert data into multiple related tables
-- Access previously inserted table data via `store.tables`
+- Access previously inserted table data via `seeder.tables`
 
 ## Next steps
 

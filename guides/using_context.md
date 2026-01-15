@@ -7,19 +7,19 @@ In this example, we generate timestamps once and share them across tables, filte
 ```elixir
 def call do
   new()
-  |> add_context("timestamps")
-  |> add_table("users")
-  |> add_table("posts")
-  |> insert(Blog.Repo)
+  |> with_context("timestamps")
+  |> with_table("users")
+  |> with_table("posts")
+  |> run(Blog.Repo)
 end
 
-def context(_store, "timestamps") do
+def context(_seeder, "timestamps") do
   base = ~U[2024-01-01 00:00:00Z]
   for day <- 0..29, do: DateTime.add(base, day, :day)
 end
 
-def table(store, "users") do
-  timestamps = store.context["timestamps"]
+def table(seeder, "users") do
+  timestamps = seeder.context["timestamps"]
 
   for i <- 1..100 do
     %{
@@ -32,9 +32,9 @@ def table(store, "users") do
   end
 end
 
-def table(store, "posts") do
-  users = store.tables["users"]
-  timestamps = store.context["timestamps"]
+def table(seeder, "posts") do
+  users = seeder.tables["users"]
+  timestamps = seeder.context["timestamps"]
 
   Enum.flat_map(users, fn user ->
     # Only use timestamps after the user was created

@@ -26,12 +26,12 @@ defmodule MyApp.Seeder do
 
   def call do
     new()
-    |> add_table("users")
-    |> add_table("posts")
-    |> insert(MyApp.Repo)
+    |> with_table("users")
+    |> with_table("posts")
+    |> run(MyApp.Repo)
   end
 
-  def table(_store, "users") do
+  def table(_seeder, "users") do
     for i <- 1..1000 do
       %{
         id: i,
@@ -43,8 +43,8 @@ defmodule MyApp.Seeder do
     end
   end
 
-  def table(store, "posts") do
-    users = store.tables["users"]
+  def table(seeder, "posts") do
+    users = seeder.tables["users"]
 
     Enum.flat_map(users, fn user ->
       for i <- 1..5 do
@@ -77,9 +77,9 @@ MyApp.Seeder.call()
 
 Blink uses a callback-based pattern where you define:
 
-- Which tables to insert (via `add_table/2`)
+- Which tables to insert (via `with_table/2`)
 - What data goes in each table (via `table/2` callback)
-- Optional shared context (via `add_context/2` and `context/2` callback)
+- Optional shared context (via `with_context/2` and `context/2` callback)
 
 ### Using Data from Context
 
@@ -88,24 +88,24 @@ Use context to compute expensive operations once and share across all tables:
 ```elixir
 def call do
   new()
-  |> add_context("timestamps")
-  |> add_table("users")
-  |> add_table("posts")
-  |> insert(MyApp.Repo)
+  |> with_context("timestamps")
+  |> with_table("users")
+  |> with_table("posts")
+  |> run(MyApp.Repo)
 end
 
-def context(_store, "timestamps") do
+def context(_seeder, "timestamps") do
   base = ~U[2024-01-01 00:00:00Z]
   for day <- 0..29, do: DateTime.add(base, day, :day)
 end
 
-def table(store, "users") do
-  timestamps = store.context["timestamps"]
+def table(seeder, "users") do
+  timestamps = seeder.context["timestamps"]
   # Use shared timestamps...
 end
 
-def table(store, "posts") do
-  timestamps = store.context["timestamps"]
+def table(seeder, "posts") do
+  timestamps = seeder.context["timestamps"]
   # Reuse same timestamps...
 end
 ```
@@ -115,7 +115,7 @@ end
 Load data from CSV or JSON files:
 
 ```elixir
-def table(_store, "users") do
+def table(_seeder, "users") do
   from_csv("priv/seed_data/users.csv",
     transform: fn row ->
       row
@@ -126,7 +126,7 @@ def table(_store, "users") do
   )
 end
 
-def table(_store, "products") do
+def table(_seeder, "products") do
   from_json("priv/seed_data/products.json",
     transform: fn product ->
       Map.put(product, "inserted_at", ~U[2024-01-01 00:00:00Z])
@@ -143,16 +143,16 @@ Adjust batch size:
 
 ```elixir
 new()
-|> add_table("users")
-|> insert(MyApp.Repo, batch_size: 5_000)  # Default: 900
+|> with_table("users")
+|> run(MyApp.Repo, batch_size: 5_000)  # Default: 900
 ```
 
 Or disable batching:
 
 ```elixir
 new()
-|> add_table("users")
-|> insert(MyApp.Repo, batch_size: :infinity)
+|> with_table("users")
+|> run(MyApp.Repo, batch_size: :infinity)
 ```
 
 ### Using with ExMachina
@@ -166,20 +166,20 @@ defmodule MyApp.Seeder do
 
   def call do
     new()
-    |> add_table("users")
-    |> add_table("posts")
-    |> insert(MyApp.Repo)
+    |> with_table("users")
+    |> with_table("posts")
+    |> run(MyApp.Repo)
   end
 
-  def table(_store, "users") do
+  def table(_seeder, "users") do
     for _i <- 1..100 do
       user = build(:user)
       Map.put(user, :id, Ecto.UUID.generate())
     end
   end
 
-  def table(store, "posts") do
-    user_ids = Enum.map(store.tables["users"], & &1.id)
+  def table(seeder, "posts") do
+    user_ids = Enum.map(seeder.tables["users"], & &1.id)
 
     Enum.flat_map(user_ids, fn user_id ->
       for _i <- 1..5 do

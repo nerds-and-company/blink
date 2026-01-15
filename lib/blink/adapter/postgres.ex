@@ -23,7 +23,7 @@ defmodule Blink.Adapter.Postgres do
   """
   @behaviour Blink.Adapter
 
-  import Blink.Store, only: [is_key: 1]
+  import Blink.Seeder, only: [is_key: 1]
 
   @default_batch_size :infinity
 
@@ -35,7 +35,7 @@ defmodule Blink.Adapter.Postgres do
   @impl true
   @spec call(
           items :: [map()],
-          table_name :: Blink.Store.key(),
+          table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, Exception.t()}
@@ -82,7 +82,7 @@ defmodule Blink.Adapter.Postgres do
   """
   @spec copy_to_table(
           items :: [map()],
-          table_name :: Blink.Store.key(),
+          table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, Exception.t()}

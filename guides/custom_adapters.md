@@ -45,7 +45,7 @@ The adapter should:
 
 ## Using a Custom Adapter
 
-Pass your adapter when calling `insert/3`:
+Pass your adapter when calling `run/3`:
 
 ```elixir
 defmodule MyApp.Seeder do
@@ -53,11 +53,11 @@ defmodule MyApp.Seeder do
 
   def call do
     new()
-    |> add_table("users")
-    |> insert(MyApp.Repo, adapter: MyApp.Adapters.MySQL)
+    |> with_table("users")
+    |> run(MyApp.Repo, adapter: MyApp.Adapters.MySQL)
   end
 
-  def table(_store, "users") do
+  def table(_seeder, "users") do
     [
       %{id: 1, name: "Alice"},
       %{id: 2, name: "Bob"}
@@ -72,16 +72,16 @@ Or use it directly with `copy_to_table/4`:
 Blink.copy_to_table(items, "users", MyApp.Repo, adapter: MyApp.Adapters.MySQL)
 ```
 
-## Overriding the Insert Function
+## Overriding the Run Function
 
-For complete control over the insertion process, you can override the `insert/3` callback in your Blink module:
+For complete control over the insertion process, you can override the `run/3` callback in your Blink module:
 
 ```elixir
 defmodule MyApp.Seeder do
   use Blink
 
   @impl true
-  def insert(%Store{} = store, repo, opts \\ []) do
+  def run(%Seeder{} = seeder, repo, opts \\ []) do
     # Implement custom transaction logic, error handling, etc.
     # Tip: Blink.copy_to_table/4 is available for inserting data into individual tables
   end

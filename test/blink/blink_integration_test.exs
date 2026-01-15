@@ -27,8 +27,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -55,8 +55,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -83,8 +83,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -111,8 +111,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -139,8 +139,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -167,8 +167,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -195,8 +195,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -224,8 +224,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -252,8 +252,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -280,8 +280,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -314,8 +314,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -343,9 +343,9 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> add_table("posts")
-          |> insert(Repo)
+          |> with_table("users")
+          |> with_table("posts")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -381,8 +381,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users"), do: []
@@ -401,8 +401,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do
@@ -428,9 +428,9 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_context("users")
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_context("users")
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def context(_store, "users") do
@@ -457,8 +457,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo, batch_size: 2)
+          |> with_table("users")
+          |> run(Repo, batch_size: 2)
         end
 
         def table(_store, "users") do
@@ -489,8 +489,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo, batch_size: :infinity)
+          |> with_table("users")
+          |> run(Repo, batch_size: :infinity)
         end
 
         def table(_store, "users") do
@@ -521,8 +521,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> add_table("users")
-          |> insert(Repo)
+          |> with_table("users")
+          |> run(Repo)
         end
 
         def table(_store, "users") do

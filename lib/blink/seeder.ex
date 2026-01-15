@@ -1,16 +1,16 @@
-defmodule Blink.Store do
+defmodule Blink.Seeder do
   @moduledoc """
   The central data structure and operations for the Blink seeding pipeline.
 
-  This module provides the `Store` struct and functions for building and
+  This module provides the `Seeder` struct and functions for building and
   inserting seed data into your database.
 
-  A `Store` holds:
+  A `Seeder` holds:
 
     * `:tables` — data that will be inserted into the database.
     * `:table_order` - the order in which tables were added, used to ensure
       inserts respect foreign key constraints.
-    * `:context` — auxiliary data available while constructing the `Store`, and
+    * `:context` — auxiliary data available while constructing the `Seeder`, and
       will not be inserted into the database.
   """
 
@@ -35,12 +35,12 @@ defmodule Blink.Store do
   defguard is_key(key) when is_binary(key) or is_atom(key)
 
   @doc """
-  Creates an empty Store.
+  Creates an empty Seeder.
 
   ## Example
 
-      iex> Blink.Store.new()
-      %Blink.Store{tables: %{}, table_order: [], context: %{}}
+      iex> Blink.Seeder.new()
+      %Blink.Seeder{tables: %{}, table_order: [], context: %{}}
   """
   @spec new() :: empty()
   def new do
@@ -48,50 +48,50 @@ defmodule Blink.Store do
   end
 
   @doc """
-  Adds a table to the store by calling the provided builder function.
+  Loads a table into the seeder by calling the provided builder function.
 
-  The builder function should take a store and table name and return a list of
+  The builder function should take a seeder and table name and return a list of
   maps representing the table data.
   """
-  @spec add_table(
-          store :: t(),
+  @spec with_table(
+          seeder :: t(),
           table_name :: key(),
           builder :: (t(), key() -> [map()])
         ) :: t()
-  def add_table(%__MODULE__{} = store, table_name, builder)
+  def with_table(%__MODULE__{} = seeder, table_name, builder)
       when is_key(table_name) and is_function(builder, 2) do
-    raise_if_key_exists(store, table_name, :tables)
+    raise_if_key_exists(seeder, table_name, :tables)
 
-    store
-    |> put_in([:tables, table_name], builder.(store, table_name))
+    seeder
+    |> put_in([:tables, table_name], builder.(seeder, table_name))
     |> update_in([:table_order], fn order -> order ++ [table_name] end)
   end
 
   @doc """
-  Adds context to the store by calling the provided builder function.
+  Loads context into the seeder by calling the provided builder function.
 
-  The builder function should take a store and key and return the context data.
+  The builder function should take a seeder and key and return the context data.
   """
-  @spec add_context(
-          store :: t(),
+  @spec with_context(
+          seeder :: t(),
           key :: key(),
           builder :: (t(), key() -> any())
         ) :: t()
-  def add_context(%__MODULE__{} = store, key, builder)
+  def with_context(%__MODULE__{} = seeder, key, builder)
       when is_key(key) and is_function(builder, 2) do
-    raise_if_key_exists(store, key, :context)
+    raise_if_key_exists(seeder, key, :context)
 
-    put_in(store.context[key], builder.(store, key))
+    put_in(seeder.context[key], builder.(seeder, key))
   end
 
-  defp raise_if_key_exists(%__MODULE__{} = store, key, target) do
+  defp raise_if_key_exists(%__MODULE__{} = seeder, key, target) do
     keys_as_strings =
-      store[target]
+      seeder[target]
       |> Map.keys()
       |> Enum.map(&key_to_string/1)
 
     if key_to_string(key) in keys_as_strings do
-      raise ArgumentError, "key already exists in `#{inspect(target)}` of Store: #{key}"
+      raise ArgumentError, "key already exists in `#{inspect(target)}` of Seeder: #{key}"
     end
   end
 
@@ -99,14 +99,14 @@ defmodule Blink.Store do
   defp key_to_string(key) when is_binary(key), do: key
 
   @doc """
-  Inserts all table records from a Store into the given repository.
+  Runs the seeder, inserting all table records into the given repository.
   Iterates over the tables in order when seeding the database.
 
   The repo parameter must be a module that implements the Ecto.Repo
   behaviour and is configured with a Postgres adapter (e.g.,
   Ecto.Adapters.Postgres).
 
-  Data stored in the Store's context is ignored.
+  Data stored in the Seeder's context is ignored.
 
   ## Options
 
@@ -120,21 +120,21 @@ defmodule Blink.Store do
   ## Examples
 
       # With custom timeout for large datasets
-      insert(store, MyApp.Repo, timeout: 60_000)
+      run(seeder, MyApp.Repo, timeout: 60_000)
 
       # Disable timeout entirely
-      insert(store, MyApp.Repo, timeout: :infinity)
+      run(seeder, MyApp.Repo, timeout: :infinity)
 
   """
-  @spec insert(store :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+  @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
           {:ok, any()} | {:error, any()}
-  def insert(%__MODULE__{} = store, repo, opts \\ []) when is_atom(repo) do
+  def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
     timeout = Keyword.get(opts, :timeout, 15_000)
 
     repo.transact(
       fn ->
-        Enum.each(store.table_order, fn table_name ->
-          items = Map.fetch!(store.tables, table_name)
+        Enum.each(seeder.table_order, fn table_name ->
+          items = Map.fetch!(seeder.tables, table_name)
 
           case Blink.copy_to_table(items, table_name, repo, opts) do
             {:ok, _} -> :ok
@@ -151,29 +151,29 @@ defmodule Blink.Store do
   end
 
   @impl Access
-  def fetch(%__MODULE__{} = store, key) when key in [:tables, :table_order, :context] do
-    {:ok, Map.get(store, key)}
+  def fetch(%__MODULE__{} = seeder, key) when key in [:tables, :table_order, :context] do
+    {:ok, Map.get(seeder, key)}
   end
 
   def fetch(_, _), do: :error
 
   @impl Access
-  def get_and_update(%__MODULE__{} = store, key, fun)
+  def get_and_update(%__MODULE__{} = seeder, key, fun)
       when key in [:tables, :table_order, :context] do
-    {get_value, new_value} = fun.(Map.get(store, key))
-    {get_value, Map.put(store, key, new_value)}
+    {get_value, new_value} = fun.(Map.get(seeder, key))
+    {get_value, Map.put(seeder, key, new_value)}
   end
 
-  def get_and_update(store, _, _), do: {nil, store}
+  def get_and_update(seeder, _, _), do: {nil, seeder}
 
   @impl Access
-  def pop(%__MODULE__{} = store, key) when key in [:tables, :context] do
-    {Map.get(store, key), Map.put(store, key, %{})}
+  def pop(%__MODULE__{} = seeder, key) when key in [:tables, :context] do
+    {Map.get(seeder, key), Map.put(seeder, key, %{})}
   end
 
-  def pop(%__MODULE__{} = store, :table_order) do
-    {store.table_order, Map.put(store, :table_order, [])}
+  def pop(%__MODULE__{} = seeder, :table_order) do
+    {seeder.table_order, Map.put(seeder, :table_order, [])}
   end
 
-  def pop(store, _), do: {nil, store}
+  def pop(%__MODULE__{} = seeder, _), do: {nil, seeder}
 end

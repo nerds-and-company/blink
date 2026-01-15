@@ -7,9 +7,9 @@ You can enable batching by setting a custom batch size:
 ```elixir
 def call do
   new()
-  |> add_table("users")
-  |> insert(Blog.Repo, batch_size: 900)
+  |> with_table("users")
+  |> run(Blog.Repo, batch_size: 900)
 end
 ```
 
-Batch size is internally used for conversion of the table data from a Store to CSV format. The current version of Blink loads Store instances into memory before insertion, so even with batching turned on it works best for datasets of moderate size. Future versions might address this limitation.
+Batch size is internally used for conversion of a Seeder's table data to CSV format. The current version of Blink loads Seeder instances into memory before insertion, so even with batching turned on it works best for datasets of moderate size. Future versions might address this limitation.

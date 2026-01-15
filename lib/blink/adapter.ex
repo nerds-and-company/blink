@@ -43,7 +43,7 @@ defmodule Blink.Adapter do
   """
   @callback call(
               items :: [map()],
-              table_name :: Blink.Store.key(),
+              table_name :: Blink.Seeder.key(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
             ) :: {:ok, any()} | {:error, any()}
@@ -56,7 +56,7 @@ defmodule Blink.Adapter do
   """
   @spec copy_to_table(
           items :: [map()],
-          table_name :: Blink.Store.key(),
+          table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: {:ok, any()} | {:error, any()}

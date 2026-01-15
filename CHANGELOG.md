@@ -3,10 +3,14 @@
 ## [Unreleased]
 
 ### Added
-- Added `:timeout` option to `insert/3` to configure transaction timeout for large datasets (fixes #6)
+- Added `:timeout` option to `run/3` to configure transaction timeout
 
 ### Changed
 - **Breaking:** Changed default `batch_size` from `900` to `:infinity`. This improves performance by default but might use more memory.
+- **Breaking:** Renamed `Blink.Store` to `Blink.Seeder`
+- **Breaking:** Renamed `Blink.Seeder.insert/3` to `Blink.Seeder.run/3`
+- **Breaking:** Renamed `add_table/2` to `with_table/2`
+- **Breaking:** Renamed `add_context/2` to `with_context/2`
 
 ### Fixed
 - Fixed CSV escaping in PostgreSQL COPY adapter: strings containing special characters (pipe `|`, double quotes `"`, newlines, carriage returns, backslashes) are now properly escaped to prevent data corruption
