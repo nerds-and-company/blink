@@ -5,6 +5,7 @@
 ### Added
 - Added `:timeout` option to `run/3` to configure transaction timeout
 - Added stream support: `table/2` callbacks can now return streams in addition to lists, enabling memory-efficient seeding of large datasets
+- Added `:stream` option to `from_csv/2` to return a stream instead of a list for memory-efficient processing of large CSV files
 
 ### Changed
 - **Breaking:** Removed `batch_size` option from `run/3` and the PostgreSQL adapter

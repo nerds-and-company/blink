@@ -236,7 +236,7 @@ defmodule Blink do
   defdelegate copy_to_table(items, table_name, repo, opts \\ []), to: Blink.Adapter
 
   @doc """
-  Reads a CSV file and returns a list of maps suitable for use in `table/2` callbacks.
+  Reads a CSV file and returns maps suitable for use in `table/2` callbacks.
 
   By default, the CSV file must have a header row. Each column header will become a
   string key in the resulting maps. All values are returned as strings.
@@ -247,6 +247,8 @@ defmodule Blink do
     * `opts` - Keyword list of options:
       * `:headers` - List of header names to use, or `:infer` to read from first row (default: `:infer`)
       * `:transform` - Function to transform each row map (default: identity function)
+      * `:stream` - When `true`, returns a stream instead of a list for memory-efficient
+        processing of large files (default: `false`)
 
   ## Examples
 
@@ -271,11 +273,17 @@ defmodule Blink do
         )
       end
 
+      # Stream a large CSV file for memory-efficient seeding
+      def table(_store, "users") do
+        Blink.from_csv("large_users.csv", stream: true)
+      end
+
   ## Returns
 
-  A list of maps, where each map represents a row from the CSV file.
+  A list of maps (default) or a stream of maps (when `stream: true`), where each map
+  represents a row from the CSV file.
   """
-  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: [map()]
+  @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t()
   defdelegate from_csv(path, opts \\ []), to: Blink.CSV
 
   @doc """

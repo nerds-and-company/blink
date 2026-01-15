@@ -3,6 +3,10 @@ defmodule Blink.CSVTest do
 
   @fixtures_path Path.expand("../fixtures", __DIR__)
 
+  defp is_stream(value) do
+    Enumerable.impl_for(value) != nil and not is_list(value)
+  end
+
   describe "from_csv/2" do
     test "reads a CSV file and returns a list of maps with string keys" do
       path = Path.join(@fixtures_path, "users.csv")
@@ -127,6 +131,89 @@ defmodule Blink.CSVTest do
                    fn ->
                      Blink.from_csv(path, headers: "invalid")
                    end
+    end
+
+    test "raises when headers contains invalid types" do
+      path = Path.join(@fixtures_path, "users.csv")
+
+      assert_raise ArgumentError,
+                   ~r/:headers option must be a list of strings or atoms/,
+                   fn ->
+                     Blink.from_csv(path, headers: [123, fn -> :ok end])
+                   end
+    end
+
+    test "returns a stream when stream option is true" do
+      path = Path.join(@fixtures_path, "users.csv")
+
+      result = Blink.from_csv(path, stream: true)
+
+      assert is_stream(result)
+
+      # Consume the stream and verify the data
+      rows = Enum.to_list(result)
+
+      assert length(rows) == 3
+
+      assert [
+               %{"id" => "1", "name" => "Alice", "email" => "alice@example.com", "age" => "30"},
+               %{"id" => "2", "name" => "Bob", "email" => "bob@example.com", "age" => "25"},
+               %{
+                 "id" => "3",
+                 "name" => "Charlie",
+                 "email" => "charlie@example.com",
+                 "age" => "35"
+               }
+             ] = rows
+    end
+
+    test "stream with transform option" do
+      path = Path.join(@fixtures_path, "users.csv")
+
+      result =
+        Blink.from_csv(path,
+          stream: true,
+          transform: fn row ->
+            row
+            |> Map.update!("id", &String.to_integer/1)
+            |> Map.update!("age", &String.to_integer/1)
+          end
+        )
+
+      assert is_stream(result)
+
+      rows = Enum.to_list(result)
+
+      assert length(rows) == 3
+
+      assert [
+               %{"id" => 1, "name" => "Alice", "email" => "alice@example.com", "age" => 30},
+               %{"id" => 2, "name" => "Bob", "email" => "bob@example.com", "age" => 25},
+               %{"id" => 3, "name" => "Charlie", "email" => "charlie@example.com", "age" => 35}
+             ] = rows
+    end
+
+    test "stream with explicit headers option" do
+      path = Path.join(@fixtures_path, "users_no_headers.csv")
+
+      result = Blink.from_csv(path, stream: true, headers: ["id", "name", "email", "age"])
+
+      assert is_stream(result)
+
+      rows = Enum.to_list(result)
+
+      assert length(rows) == 3
+
+      assert [
+               %{"id" => "1", "name" => "Alice", "email" => "alice@example.com", "age" => "30"},
+               %{"id" => "2", "name" => "Bob", "email" => "bob@example.com", "age" => "25"},
+               %{
+                 "id" => "3",
+                 "name" => "Charlie",
+                 "email" => "charlie@example.com",
+                 "age" => "35"
+               }
+             ] = rows
     end
   end
 end
