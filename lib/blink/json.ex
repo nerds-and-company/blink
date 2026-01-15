@@ -16,21 +16,18 @@ defmodule Blink.JSON do
   end
 
   defp parse_json_items(items, transform) when is_list(items) do
-    validate_json_items(items)
-    Enum.map(items, transform)
+    Enum.map(items, fn
+      item when is_map(item) ->
+        transform.(item)
+
+      other ->
+        raise ArgumentError,
+              "JSON file must contain an array of objects, found: #{inspect(other)}"
+    end)
   end
 
   defp parse_json_items(other, _transform) do
     raise ArgumentError,
           "JSON file must contain an array at root level, found: #{inspect(other)}"
-  end
-
-  defp validate_json_items(items) do
-    Enum.each(items, fn item ->
-      if not is_map(item) do
-        raise ArgumentError,
-              "JSON file must contain an array of objects, found: #{inspect(item)}"
-      end
-    end)
   end
 end
