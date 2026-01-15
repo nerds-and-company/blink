@@ -5,51 +5,35 @@ defmodule Blink.CSV do
 
   @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t()
   def from_csv(path, opts \\ []) do
-    opts = [
-      stream: Keyword.get(opts, :stream, false),
-      headers: Keyword.get(opts, :headers, :infer),
-      transform: Keyword.get(opts, :transform, & &1)
-    ]
-
     validate_opts!(opts)
-    parse_csv_rows(path, opts)
-  end
 
-  defp parse_csv_rows(path, stream: false, headers: :infer, transform: transform) do
-    raw_rows =
+    stream? = Keyword.get(opts, :stream, false)
+    headers = Keyword.get(opts, :headers, :infer)
+    transform = Keyword.get(opts, :transform, & &1)
+
+    rows =
       path
-      |> File.stream!()
-      |> Blink.CSVParser.parse_stream(skip_headers: false)
-      |> Enum.to_list()
+      |> stream_rows()
+      |> apply_headers(headers, transform)
 
-    case raw_rows do
-      [] -> []
-      [headers | rows] -> Enum.map(rows, &row_to_map(&1, headers, transform))
-    end
+    if stream?, do: rows, else: Enum.to_list(rows)
   end
 
-  defp parse_csv_rows(path, stream: false, headers: headers, transform: transform) do
+  defp stream_rows(path) do
     path
     |> File.stream!()
     |> Blink.CSVParser.parse_stream(skip_headers: false)
-    |> Enum.map(&row_to_map(&1, headers, transform))
   end
 
-  defp parse_csv_rows(path, stream: true, headers: :infer, transform: transform) do
-    path
-    |> File.stream!()
-    |> Blink.CSVParser.parse_stream(skip_headers: false)
-    |> Stream.transform(nil, fn
+  defp apply_headers(rows, :infer, transform) do
+    Stream.transform(rows, nil, fn
       row, nil -> {[], row}
       row, headers -> {[row_to_map(row, headers, transform)], headers}
     end)
   end
 
-  defp parse_csv_rows(path, stream: true, headers: headers, transform: transform) do
-    path
-    |> File.stream!()
-    |> Blink.CSVParser.parse_stream(skip_headers: false)
-    |> Stream.map(&row_to_map(&1, headers, transform))
+  defp apply_headers(rows, headers, transform) do
+    Stream.map(rows, &row_to_map(&1, headers, transform))
   end
 
   defp row_to_map(row, headers, transform) do
@@ -60,11 +44,16 @@ defmodule Blink.CSV do
   end
 
   defp validate_opts!(opts) do
-    unless is_function(opts[:transform], 1) do
+    transform = Keyword.get(opts, :transform)
+
+    if transform != nil and not is_function(transform, 1) do
       raise ArgumentError, ":transform option must be a function that takes 1 argument"
     end
 
-    case opts[:headers] do
+    case Keyword.get(opts, :headers) do
+      nil ->
+        :ok
+
       :infer ->
         :ok
 
