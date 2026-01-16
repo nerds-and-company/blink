@@ -121,7 +121,7 @@ defmodule Blink do
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback context(seeder :: Seeder.t(), key :: Seeder.key()) :: [map()]
+  @callback context(seeder :: Seeder.t(), key :: Seeder.key()) :: Enumerable.t()
 
   @doc """
   Specifies how to run the Seeder, performing a bulk insert of the seed data
