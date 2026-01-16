@@ -525,6 +525,43 @@ defmodule BlinkIntegrationTest do
                {2, "Bob", %{"theme" => "light", "notifications" => false}}
              ]
     end
+
+    test "inserts nested maps from CSV file as JSONB" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> run(Repo)
+        end
+
+        def table(_seeder, "users") do
+          fixtures_path = Path.expand("../fixtures", __DIR__)
+          path = Path.join(fixtures_path, "users_with_settings.csv")
+
+          Blink.from_csv(path,
+            transform: fn row ->
+              %{
+                id: String.to_integer(row["id"]),
+                name: row["name"],
+                email: row["email"],
+                settings: Jason.decode!(row["settings"])
+              }
+            end
+          )
+        end
+      end
+
+      assert {:ok, _} = Dummy.call()
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice", %{"theme" => "dark", "notifications" => true}},
+               {2, "Bob", %{"theme" => "light", "notifications" => false}}
+             ]
+    end
   end
 
   describe "insert/3" do
