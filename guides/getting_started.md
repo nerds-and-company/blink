@@ -2,9 +2,12 @@
 
 This guide is an introduction to Blink, a fast bulk data insertion library for Ecto and PostgreSQL.
 
-In this guide, we are going to:
+In this guide, we will:
+
 - Create a seeder module for inserting users and posts
-- Learn how to access data from previously inserted tables
+- Learn how to reference data from previously declared tables
+- Use streams for memory-efficient seeding
+- Store auxiliary data in context without inserting it into the database
 
 ## Adding Blink to an application
 
@@ -29,34 +32,52 @@ mix deps.get
 Blink works with any Ecto repository. If you don't have Ecto set up yet, follow the [Ecto Getting Started guide](https://hexdocs.pm/ecto/getting-started.html) to configure your repository and create your database tables.
 
 For this guide, we'll assume you have:
+
 - An Ecto repository (e.g., `Blog.Repo`) configured
 - A `users` table with columns: `id`, `name`, `email`, `inserted_at`, `updated_at`
 - A `posts` table with columns: `id`, `title`, `body`, `user_id`, `inserted_at`, `updated_at`
 
 ## Creating a seeder
 
-Now that we have our database set up, let's create a seeder to insert data. Create `lib/blog/seeders/blog_seeder.ex`:
+Now that we have our database set up, let's create a seeder module to insert data:
 
 ```elixir
-defmodule Blog.Seeders.BlogSeeder do
+defmodule Blog.Seeder do
   use Blink
 
   def call do
     new()
     |> with_table("users")
+    |> with_table("posts")
     |> run(Blog.Repo)
   end
 
   def table(_seeder, "users") do
-    for i <- 1..100 do
-      %{
-        id: i,
-        name: "User #{i}",
-        email: "user#{i}@example.com",
-        inserted_at: ~U[2024-01-01 00:00:00Z],
-        updated_at: ~U[2024-01-01 00:00:00Z]
-      }
-    end
+    [
+      %{id: 1, name: "Alice", email: "alice@example.com"},
+      %{id: 2, name: "Bob", email: "bob@example.com"},
+    ]
+  end
+
+  def table(seeder, "posts") do
+    IO.inspect(seeder)
+    # %Blink.Seeder{
+    #   tables: %{"users" => [%{id: 1, name: "Alice", ...}, ...]},
+    #   ...
+    # }
+
+    Enum.flat_map(seeder.tables["users"], fn user ->
+      for i <- 1..5 do
+        %{
+          id: (user.id - 1) * 5 + i,
+          title: "Post #{i} by #{user.name}",
+          body: "This is the content of post #{i} by #{user.name}",
+          user_id: user.id,
+          inserted_at: ~U[2024-01-01 00:00:00Z],
+          updated_at: ~U[2024-01-01 00:00:00Z]
+        }
+      end
+    end)
   end
 end
 ```
@@ -64,33 +85,28 @@ end
 The seeder above does the following:
 
 1. `use Blink` - Injects Blink's functions and defines required callbacks
-2. `new()` - Creates an empty Seeder
-3. `with_table("users")` - Declares the users table
-4. `table/2` callback - Defines what data to insert into the users table
-5. `run/2` - Executes the bulk insertion of table data
+2. `new()` - Creates an empty Seeder struct
+3. `with_table/2` - Declares the tables to insert rows into
+4. `table/2` - Defines what rows to insert into each table
+5. `run/2` - Executes the bulk insertion
+
+Each `table/2` callback receives a Seeder struct. The `tables` field stores data from previously declared tables, allowing the `"posts"` callback to reference `seeder.tables["users"]`. Tables are inserted in declaration order. The `context` field is covered below.
 
 Let's run it from IEx:
 
 ```elixir
 iex -S mix
-iex> Blog.Seeders.BlogSeeder.call()
-# => Inserts 100 users
-```
+iex> Blog.Seeder.call()
+# => Inserts 2 users and 10 posts
+``` 
 
-## Inserting dependent tables
+## Streams
 
-But what if you have relationships between tables. Let's add posts that belong to users. Update the seeder:
+The `table/2` callback can also return a stream for memory-efficient seeding of large datasets:
 
 ```elixir
-def call do
-  new()
-  |> with_table("users")
-  |> with_table("posts")  # Add the posts table
-  |> run(Blog.Repo)
-end
-
 def table(_seeder, "users") do
-  for i <- 1..100 do
+  Stream.map(1..1_000_000, fn i ->
     %{
       id: i,
       name: "User #{i}",
@@ -98,34 +114,84 @@ def table(_seeder, "users") do
       inserted_at: ~U[2024-01-01 00:00:00Z],
       updated_at: ~U[2024-01-01 00:00:00Z]
     }
-  end
+  end)
+end
 
-# Add another table/2 clause
 def table(seeder, "posts") do
-  users = seeder.tables["users"]  # Access data destined for users table
-
-  Enum.flat_map(users, fn user ->
-    for i <- 1..5 do
+  Stream.flat_map(seeder.tables["users"], fn user ->
+    Stream.map(1..20, fn i ->
       %{
-        id: (user.id - 1) * 5 + i,
+        id: (user.id - 1) * 20 + i,
         title: "Post #{i} by #{user.name}",
         body: "This is the content of post #{i}",
         user_id: user.id,
         inserted_at: ~U[2024-01-01 00:00:00Z],
         updated_at: ~U[2024-01-01 00:00:00Z]
       }
-    end
+    end)
   end)
 end
 ```
 
-The key insight here is that tables are inserted in the order they're added. When defining the `"posts"` table, we can access the `"users"` table data via `seeder.tables["users"]`. This allows us to reference user IDs when creating posts.
+Streams are processed lazily by `run/2`—no extra configuration needed—so they're recommended for large datasets to keep memory usage low.
 
-Run the updated seeder:
+## Using context
+
+Sometimes you need to compute data once and share it across multiple tables. Context data is not inserted into the database but is available when building your table data.
+
+In this example, we generate timestamps once and reuse them across tables, ensuring posts are created after their author.
 
 ```elixir
-iex> Blog.Seeders.BlogSeeder.call()
-# => Inserts 100 users and 500 posts
+def call do
+  new()
+  |> with_context("timestamps")
+  |> with_table("users")
+  |> with_table("posts")
+  |> run(Blog.Repo)
+end
+
+def context(_seeder, "timestamps") do
+  base = ~U[2024-01-01 00:00:00Z]
+  for day <- 0..29, do: DateTime.add(base, day, :day)
+end
+
+def table(seeder, "users") do
+  timestamps = seeder.context["timestamps"]
+
+  for i <- 1..100 do
+    %{
+      id: i,
+      name: "User #{i}",
+      email: "user#{i}@example.com",
+      inserted_at: Enum.random(timestamps),
+      updated_at: Enum.random(timestamps)
+    }
+  end
+end
+
+def table(seeder, "posts") do
+  users = seeder.tables["users"]
+  timestamps = seeder.context["timestamps"]
+
+  Enum.flat_map(users, fn user ->
+    # Only use timestamps after the user was created
+    valid_timestamps =
+      Enum.filter(timestamps, fn ts ->
+        DateTime.compare(ts, user.inserted_at) == :gt
+      end)
+
+    for i <- 1..5 do
+      %{
+        id: (user.id - 1) * 5 + i,
+        title: "Post #{i}",
+        body: "Content here",
+        user_id: user.id,
+        inserted_at: Enum.random(valid_timestamps),
+        updated_at: Enum.random(valid_timestamps)
+      }
+    end
+  end)
+end
 ```
 
 ## Summary
@@ -133,14 +199,14 @@ iex> Blog.Seeders.BlogSeeder.call()
 In this guide, we learned how to:
 
 - Create a seeder module with `use Blink`
-- Insert data into multiple related tables
-- Access previously inserted table data via `seeder.tables`
+- Reference data from previously declared tables via `seeder.tables`
+- Use streams for memory-efficient seeding of large datasets
+- Store auxiliary data in context without inserting it into the database
 
 ## Next steps
 
 You might also find these guides useful:
 
-- [Using Context](using_context.html) - Share computed data across tables
 - [Loading Data from Files](loading_data_from_files.html) - Learn how to load data from CSV and JSON files
 - [Integrating with ExMachina](integrating_with_ex_machina.html) - Generate realistic test data
 
