@@ -76,7 +76,8 @@ defmodule Blink.Adapter.Postgres do
   ## Notes
 
   The function assumes all items have the same keys. NULL values are represented
-  as `\\N` in the CSV format.
+  as `\\N` in the CSV format. Nested maps are automatically JSON-encoded for
+  JSONB columns.
   """
   @spec copy_to_table(
           items :: Enumerable.t(),

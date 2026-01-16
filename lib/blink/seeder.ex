@@ -50,8 +50,8 @@ defmodule Blink.Seeder do
   @doc """
   Loads a table into the seeder by calling the provided builder function.
 
-  The builder function should take a seeder and table name and return a list of
-  maps representing the table data.
+  The builder function should take a seeder and table name and return an
+  enumerable (list or stream) of maps representing the table data.
   """
   @spec with_table(
           seeder :: t(),
