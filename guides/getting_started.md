@@ -209,5 +209,3 @@ You might also find these guides useful:
 
 - [Loading Data from Files](loading_data_from_files.html) - Learn how to load data from CSV and JSON files
 - [Integrating with ExMachina](integrating_with_ex_machina.html) - Generate realistic test data
-
-For more information, see the [Blink API documentation](https://hexdocs.pm/blink/Blink.html).

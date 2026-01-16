@@ -51,7 +51,7 @@ Note: To use `Faker`, add `{:faker, "~> 0.18", only: [:dev, :test]}` to your dep
 Use ExMachina's `build/1` function in your Blink seeder:
 
 ```elixir
-defmodule Blog.Seeders.BlogSeeder do
+defmodule Blog.Seeder do
   use Blink
   import Blog.Factory
 
@@ -81,9 +81,8 @@ ExMachina generates the names and emails, while you control the IDs and timestam
 
 In this guide, we learned how to:
 
-- Set up ExMachina for data generation
 - Use ExMachina's `build/1` function with Blink seeders
 
 For more information:
+
 - [ExMachina documentation](https://hexdocs.pm/ex_machina/)
-- [Blink API documentation](https://hexdocs.pm/blink/Blink.html)

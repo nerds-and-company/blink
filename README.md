@@ -70,7 +70,8 @@ MyApp.Seeder.call()
 - **Dependent tables** - Insert tables in order with access to previously inserted data
 - **Shared context** - Compute expensive operations once and share across tables
 - **File loading** - Built-in helpers for CSV and JSON file imports
-- **Configurable batching** - Adjust batch sizes for memory-efficient large dataset insertion
+- **Stream support** - Memory-efficient seeding of large via lazy evaluation
+- **JSONB support** - Nested maps are automatically JSON-encoded for JSONB columns
 - **Transaction support** - Automatic rollback on errors
 
 ## Usage
@@ -135,7 +136,27 @@ def table(_seeder, "products") do
 end
 ```
 
-CSV files use the first row as headers by default. Both helpers accept a `:transform` option for type conversion or data manipulation.
+CSV files use the first row as headers by default. Both helpers accept a `:transform` option for type conversion or data manipulation. For large CSV files, use `stream: true` for memory-efficient processing.
+
+### Using Streams for Large Datasets
+
+For memory-efficient seeding of large datasets, `table/2` callbacks can return streams:
+
+```elixir
+def table(_seeder, "users") do
+  Stream.map(1..1_000_000, fn i ->
+    %{
+      id: i,
+      name: "User #{i}",
+      email: "user#{i}@example.com",
+      inserted_at: ~U[2024-01-01 00:00:00Z],
+      updated_at: ~U[2024-01-01 00:00:00Z]
+    }
+  end)
+end
+```
+
+Blink processes streams lazily, so the entire dataset doesn't need to fit in memory.
 
 ### Using with ExMachina
 
@@ -180,19 +201,6 @@ end
 | Elixir      | 1.15+                 |
 | Ecto        | 3.0+                  |
 | PostgreSQL  | Any supported version |
-
-## Known Limitations
-
-**Memory usage with large datasets** - Blink loads all table data into memory before insertion. For very large datasets, consider splitting your seeder into multiple modules:
-
-```elixir
-# Instead of one large seeder, use multiple smaller ones
-organization_ids = OrganizationSeeder.call()
-user_ids = UserSeeder.call(organization_ids)
-PostSeeder.call(user_ids)
-```
-
-This limitation may be addressed in a future version.
 
 ## License
 

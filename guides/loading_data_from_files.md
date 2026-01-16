@@ -20,7 +20,7 @@ id,name,email
 Load it in your seeder:
 
 ```elixir
-defmodule Blog.Seeders.BlogSeeder do
+defmodule Blog.Seeder do
   use Blink
 
   def call do
@@ -85,6 +85,23 @@ def table(_seeder, "users") do
 end
 ```
 
+### Streaming CSV files
+
+For large CSV files, use the `:stream` option to process data lazily without loading the entire file into memory:
+
+```elixir
+def table(_seeder, "users") do
+  Blink.from_csv("priv/seed_data/large_users.csv",
+    stream: true,
+    transform: fn row ->
+      Map.update!(row, "id", &String.to_integer/1)
+    end
+  )
+end
+```
+
+When `stream: true` is set, `from_csv/2` returns a stream instead of a list. Blink's insertion process handles streams efficiently.
+
 ## Loading from JSON files
 
 JSON files are useful when your data includes nested structures or when you need to preserve data types.
@@ -95,9 +112,9 @@ Create a JSON file at `priv/seed_data/products.json`:
 
 ```json
 [
-  {"id": 1, "name": "Widget", "price": 9.99},
-  {"id": 2, "name": "Gadget", "price": 19.99},
-  {"id": 3, "name": "Doohickey", "price": 29.99}
+  { "id": 1, "name": "Widget", "price": 9.99 },
+  { "id": 2, "name": "Gadget", "price": 19.99 },
+  { "id": 3, "name": "Doohickey", "price": 29.99 }
 ]
 ```
 
@@ -110,6 +127,8 @@ end
 ```
 
 The JSON file must contain an array of objects at the root level. Each object becomes a map with string keys.
+
+Note that `from_json/2` does not support the `:stream` option. For large datasets, consider using CSV files with `stream: true` instead.
 
 ### Transforming JSON data
 
@@ -128,6 +147,44 @@ def table(_seeder, "products") do
 end
 ```
 
+### Seeding JSONB columns
+
+Blink automatically handles nested maps when inserting into JSONB columns. Create a JSON file with nested objects:
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Alice",
+    "settings": { "theme": "dark", "notifications": true }
+  },
+  {
+    "id": 2,
+    "name": "Bob",
+    "settings": { "theme": "light", "notifications": false }
+  }
+]
+```
+
+Load it in your seeder:
+
+```elixir
+def table(_seeder, "users") do
+  Blink.from_json("priv/seed_data/users_with_settings.json",
+    transform: fn row ->
+      %{
+        id: row["id"],
+        name: row["name"],
+        email: "#{String.downcase(row["name"])}@example.com",
+        settings: row["settings"]
+      }
+    end
+  )
+end
+```
+
+The nested `settings` map is automatically JSON-encoded and inserted into the JSONB column.
+
 ## Error handling
 
 The functions `from_csv/2` and `from_json/2` will raise exceptions if:
@@ -145,8 +202,8 @@ These errors help catch issues early in your seeding process.
 In this guide, we learned how to:
 
 - Load data from CSV files with `from_csv/2`
-- Load data from JSON files with `from_json/2`
-- Transform data with the `:transform` option
 - Handle CSV files without headers
-
-For more information, see the [Blink API documentation](https://hexdocs.pm/blink/Blink.html).
+- Stream large CSV files with the `:stream` option
+- Load data from JSON files with `from_json/2`
+- Seed JSONB columns with nested maps
+- Transform data with the `:transform` option
