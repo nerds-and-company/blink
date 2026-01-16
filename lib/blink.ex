@@ -67,14 +67,14 @@ defmodule Blink do
           |> run(MyApp.Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "Alice", email: "alice@example.com"},
             %{id: 2, name: "Bob", email: "bob@example.com"}
           ]
         end
 
-        def context(_store, "post_ids") do
+        def context(_seeder, "post_ids") do
           [1, 2, 3]
         end
       end
@@ -101,9 +101,12 @@ defmodule Blink do
   Data added to a Seeder with `table/2` is inserted into the corresponding
   database table when calling `run/2` or `run/3`.
 
+  The callback can return either a list or a stream of maps. Returning a stream
+  enables memory-efficient seeding of large datasets.
+
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback table(store :: Seeder.t(), table_name :: Seeder.key()) :: Enumerable.t()
+  @callback table(seeder :: Seeder.t(), table_name :: Seeder.key()) :: Enumerable.t()
 
   @doc """
   Builds and returns the data to be stored under a context key in the given
@@ -118,7 +121,7 @@ defmodule Blink do
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
-  @callback context(store :: Seeder.t(), key :: Seeder.key()) :: [map()]
+  @callback context(seeder :: Seeder.t(), key :: Seeder.key()) :: [map()]
 
   @doc """
   Specifies how to run the Seeder, performing a bulk insert of the seed data
@@ -162,10 +165,10 @@ defmodule Blink do
 
       @impl true
       @spec table(
-              store :: Seeder.t(),
+              seeder :: Seeder.t(),
               table_name :: Seeder.key()
             ) :: Enumerable.t()
-      def table(store, table_name)
+      def table(seeder, table_name)
 
       @impl true
       def table(%Seeder{}, table_name) do
@@ -253,17 +256,17 @@ defmodule Blink do
   ## Examples
 
       # Simple usage with headers in first row
-      def table(_store, "users") do
+      def table(_seeder, "users") do
         Blink.from_csv("users.csv")
       end
 
       # CSV without headers - provide them explicitly
-      def table(_store, "users") do
+      def table(_seeder, "users") do
         Blink.from_csv("users.csv", headers: ["id", "name", "email"])
       end
 
       # With custom transformation for type conversion
-      def table(_store, "users") do
+      def table(_seeder, "users") do
         Blink.from_csv("users.csv",
           transform: fn row ->
             row
@@ -274,7 +277,7 @@ defmodule Blink do
       end
 
       # Stream a large CSV file for memory-efficient seeding
-      def table(_store, "users") do
+      def table(_seeder, "users") do
         Blink.from_csv("large_users.csv", stream: true)
       end
 
@@ -301,12 +304,12 @@ defmodule Blink do
   ## Examples
 
       # Simple usage
-      def table(_store, "users") do
+      def table(_seeder, "users") do
         Blink.from_json("users.json")
       end
 
       # With custom transformation for type conversion
-      def table(_store, "users") do
+      def table(_seeder, "users") do
         Blink.from_json("users.json",
           transform: fn row ->
             row

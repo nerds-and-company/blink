@@ -95,7 +95,7 @@ defmodule BlinkTest do
           |> run(BlinkTest.Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [%{id: 1, name: "Alice"}]
         end
 
@@ -122,7 +122,7 @@ defmodule BlinkTest do
           |> run(BlinkTest.Repo, timeout: 60_000)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [%{id: 1, name: "Alice"}]
         end
 

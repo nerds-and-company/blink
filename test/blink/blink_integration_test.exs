@@ -31,7 +31,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "Alice|Bob", email: "test|pipe@example.com"},
             %{id: 2, name: "a|b|c|d", email: "many|pipes|here@example.com"}
@@ -59,7 +59,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "Alice \"The Great\"", email: "alice@example.com"},
             %{id: 2, name: "Say \"Hello\"", email: "bob@example.com"}
@@ -87,7 +87,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "Alice\nNewline", email: "alice@example.com"},
             %{id: 2, name: "Line1\r\nLine2", email: "bob@example.com"}
@@ -115,7 +115,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "C:\\Users\\Alice", email: "alice@example.com"},
             %{id: 2, name: "path\\to\\file", email: "bob@example.com"}
@@ -143,7 +143,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "\\N is not null", email: "alice@example.com"},
             %{id: 2, name: "test\\Nvalue", email: "bob@example.com"}
@@ -171,7 +171,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "Alice|\"Bob\"\nCharlie", email: "test@example.com"},
             %{id: 2, name: "C:\\path|\"quoted\"\r\n\\N", email: "complex@example.com"}
@@ -199,7 +199,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           fixtures_path = Path.expand("../fixtures", __DIR__)
           path = Path.join(fixtures_path, "users_special_chars.csv")
           Blink.from_csv(path, transform: &Map.take(&1, ~w[id name email]))
@@ -228,7 +228,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "", email: "empty@example.com"},
             %{id: 2, name: "Bob", email: ""}
@@ -256,7 +256,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: nil, email: "null_name@example.com"},
             %{id: 2, name: "Bob", email: nil}
@@ -284,7 +284,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "日本語", email: "japanese@example.com"},
             %{id: 2, name: "Ελληνικά", email: "greek@example.com"},
@@ -318,7 +318,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{id: 1, name: "Alice", email: "alice@example.com"},
             %{id: 2, name: "Bob", email: "bob@example.com"}
@@ -348,11 +348,11 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [%{id: 1, name: "Alice", email: "alice@example.com"}]
         end
 
-        def table(_store, "posts") do
+        def table(_seeder, "posts") do
           [
             %{id: 1, title: "First Post", body: "Hello world", user_id: 1},
             %{id: 2, title: "Second Post", body: "Another post", user_id: 1}
@@ -385,7 +385,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users"), do: []
+        def table(_seeder, "users"), do: []
       end
 
       assert {:ok, _} = Dummy.call()
@@ -405,7 +405,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           # This will fail because id is required to be unique
           [
             %{id: 1, name: "Alice", email: "alice@example.com"},
@@ -433,11 +433,11 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def context(_store, "users") do
+        def context(_seeder, "users") do
           [%{id: 1, name: "Alice", email: "alice@example.com"}]
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [%{id: 2, name: "Bob", email: "bob@example.com"}]
         end
       end
@@ -461,7 +461,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           [
             %{
               id: 1,
@@ -499,7 +499,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           fixtures_path = Path.expand("../fixtures", __DIR__)
           path = Path.join(fixtures_path, "users_with_settings.json")
 
@@ -538,7 +538,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           # Maps with keys in different orders (Map.keys/1 order is not guaranteed)
           [
             %{id: 1, name: "Alice", email: "alice@example.com"},
@@ -572,7 +572,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           Stream.map(1..5, fn i ->
             %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
           end)
@@ -603,14 +603,14 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           Stream.map(1..3, fn i ->
             %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
           end)
         end
 
-        def table(store, "posts") do
-          Stream.flat_map(store.tables["users"], fn user ->
+        def table(seeder, "posts") do
+          Stream.flat_map(seeder.tables["users"], fn user ->
             for i <- 1..2 do
               %{
                 id: (user.id - 1) * 2 + i,
@@ -655,7 +655,7 @@ defmodule BlinkIntegrationTest do
           |> run(Repo)
         end
 
-        def table(_store, "users") do
+        def table(_seeder, "users") do
           Stream.map([], fn x -> x end)
         end
       end
