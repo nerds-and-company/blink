@@ -4,12 +4,12 @@
 
 ### Added
 - Added `:timeout` option to `run/3` to configure transaction timeout
+- Added `:batch_size` option to `run/3` to control stream chunking for backpressure (default: 10,000 rows per chunk). Only applies to streams; lists are sent as a single batch. This is different from the previously removed `batch_size` option which controlled CSV value batching.
 - Added stream support: `table/2` callbacks can now return streams in addition to lists, enabling memory-efficient seeding of large datasets
 - Added `:stream` option to `from_csv/2` to return a stream instead of a list for memory-efficient processing of large CSV files
 - Added support for seeding JSONB columns: nested maps are automatically JSON-encoded during insertion
 
 ### Changed
-- **Breaking:** Removed `batch_size` option from `run/3` and the PostgreSQL adapter
 - **Breaking:** Renamed `Blink.Store` to `Blink.Seeder`
 - **Breaking:** Renamed `Blink.Seeder.insert/3` to `Blink.Seeder.run/3`
 - **Breaking:** Renamed `add_table/2` to `with_table/2`
@@ -17,6 +17,9 @@
 
 ### Fixed
 - Fixed CSV escaping in PostgreSQL COPY adapter: strings containing special characters (pipe `|`, double quotes `"`, newlines, carriage returns, backslashes) are now properly escaped to prevent data corruption
+
+### Performance
+- Optimized CSV encoding
 
 ## [0.4.1] - 2026-01-11
 

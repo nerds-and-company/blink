@@ -113,6 +113,9 @@ defmodule Blink.Seeder do
     * `:timeout` - The time in milliseconds to wait for the transaction to
       complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
       the timeout.
+    * `:batch_size` - Number of rows per batch when streaming (default: 10,000).
+      Only applies to streams; lists are sent as a single batch. Adjust based
+      on your data size and memory constraints.
 
   ## Examples
 
@@ -121,6 +124,9 @@ defmodule Blink.Seeder do
 
       # Disable timeout entirely
       run(seeder, MyApp.Repo, timeout: :infinity)
+
+      # Custom batch size for streams
+      run(seeder, MyApp.Repo, batch_size: 5_000)
 
   """
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::

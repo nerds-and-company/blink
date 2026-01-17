@@ -54,7 +54,9 @@ defmodule Blink.Adapter.Postgres do
       datasets.
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
-    * `opts` - Keyword list of options (currently unused).
+    * `opts` - Keyword list of options:
+      * `:batch_size` - Number of rows per batch when streaming (default: 10,000).
+        Only applies to streams; lists are sent as a single batch.
 
   ## Returns
 
@@ -84,7 +86,7 @@ defmodule Blink.Adapter.Postgres do
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, Exception.t()}
+        ) :: {:ok, :inserted} | {:error, Exception.t()}
   def copy_to_table(items, table_name, repo, opts \\ [])
       when is_key(table_name) and is_atom(repo) and is_list(opts) do
     # Take the first item to get columns; this works for both lists and streams
@@ -106,35 +108,60 @@ defmodule Blink.Adapter.Postgres do
             """
           )
 
-        result =
-          Enum.into(items, repo_stream, fn row ->
-            row_iodata =
-              columns
-              |> Enum.map(fn col -> format_csv_value(Map.get(row, col)) end)
-              |> Enum.intersperse("|")
+        pattern = escape_pattern()
+        batch_size = Keyword.get(opts, :batch_size, 10_000)
 
-            IO.iodata_to_binary([row_iodata, "\n"])
+        items
+        |> chunk_items(batch_size)
+        |> Stream.into(repo_stream, fn batch ->
+          Enum.map(batch, fn row ->
+            row_to_csv(row, columns, pattern)
           end)
+        end)
+        |> Stream.run()
 
-        {:ok, result}
+        {:ok, :inserted}
     end
   rescue
     error -> {:error, error}
   end
 
-  defp format_csv_value(nil), do: "\\N"
-  defp format_csv_value(value) when is_binary(value), do: escape_csv(value)
-  defp format_csv_value(value) when is_map(value), do: escape_csv(Jason.encode!(value))
-  defp format_csv_value(value), do: escape_csv(to_string(value))
+  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
+  defp key_to_string(key) when is_binary(key), do: key
 
-  defp escape_csv(value) do
-    if String.contains?(value, ["|", "\"", "\n", "\r", "\\"]) do
-      ["\"", String.replace(value, "\"", "\"\""), "\""]
-    else
-      value
+  defp escape_pattern do
+    case Process.get(:blink_escape_pattern) do
+      nil ->
+        pattern = :binary.compile_pattern(["|", "\"", "\n", "\r", "\\"])
+        Process.put(:blink_escape_pattern, pattern)
+        pattern
+
+      pattern ->
+        pattern
     end
   end
 
-  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
-  defp key_to_string(key) when is_binary(key), do: key
+  defp chunk_items(items, _batch_size) when is_list(items), do: [items]
+  defp chunk_items(items, batch_size), do: Stream.chunk_every(items, batch_size)
+
+  defp row_to_csv(row, [col], pattern) do
+    [encode_value(Map.get(row, col), pattern), "\n"]
+  end
+
+  defp row_to_csv(row, [col | rest], pattern) do
+    [encode_value(Map.get(row, col), pattern), "|" | row_to_csv(row, rest, pattern)]
+  end
+
+  defp encode_value(nil, _pattern), do: "\\N"
+  defp encode_value(value, _pattern) when is_integer(value), do: Integer.to_string(value)
+  defp encode_value(value, pattern) when is_binary(value), do: escape(value, pattern)
+  defp encode_value(value, pattern) when is_map(value), do: escape(Jason.encode!(value), pattern)
+  defp encode_value(value, pattern), do: escape(to_string(value), pattern)
+
+  defp escape(value, pattern) do
+    case :binary.match(value, pattern) do
+      :nomatch -> value
+      _ -> ["\"", String.replace(value, "\"", "\"\""), "\""]
+    end
+  end
 end
