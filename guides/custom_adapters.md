@@ -4,7 +4,7 @@ Blink uses an adapter pattern to support different database bulk insert implemen
 
 ## The Adapter Behavior
 
-All adapters must implement the `Blink.Adapter` behavior, which requires a single callback:
+All adapters must implement the `Blink.Adapter` behaviour, which requires a single callback:
 
 ```elixir
 @callback call(
@@ -12,7 +12,7 @@ All adapters must implement the `Blink.Adapter` behavior, which requires a singl
   table_name :: binary() | atom(),
   repo :: Ecto.Repo.t(),
   opts :: Keyword.t()
-) :: {:ok, any()} | {:error, any()}
+) :: :ok
 ```
 
 The `call/4` function receives:
@@ -31,17 +31,15 @@ defmodule MyApp.Adapters.MySQL do
   @impl true
   def call(items, table_name, repo, opts \\ []) do
     # Your bulk insert implementation
-    {:ok, result}
-  rescue
-    e -> {:error, e}
+    :ok
   end
 end
 ```
 
 The adapter should:
 - Perform bulk insertion using database-specific commands
-- Return `{:ok, result}` on success or `{:error, reason}` on failure
-- Handle errors gracefully
+- Return `:ok` on success
+- Raise an exception on failure
 
 ## Using a Custom Adapter
 
