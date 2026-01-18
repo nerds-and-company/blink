@@ -1,8 +1,6 @@
 # Blink
 
-Blink is a fast bulk data insertion library for Ecto and PostgreSQL.
-
-It provides a callback-based pattern for seeding databases with dependent tables and shared context. Designed for scenarios where you need to insert test data, seed development databases, or populate staging environments quickly.
+Fast bulk data insertion for Ecto and PostgreSQL.
 
 ## Installation
 
@@ -15,8 +13,6 @@ def deps do
   ]
 end
 ```
-
-Then run `mix deps.get` to install it.
 
 ## Example
 
@@ -44,9 +40,7 @@ defmodule MyApp.Seeder do
   end
 
   def table(seeder, "posts") do
-    users = seeder.tables["users"]
-
-    Enum.flat_map(users, fn user ->
+    Enum.flat_map(seeder.tables["users"], fn user ->
       for i <- 1..5 do
         %{
           id: (user.id - 1) * 5 + i,
@@ -66,144 +60,22 @@ MyApp.Seeder.call()
 
 ## Features
 
-- **Fast bulk inserts** - Uses PostgreSQL's `COPY FROM STDIN` command for optimal performance
-- **Dependent tables** - Insert tables in order with access to previously inserted data
-- **Shared context** - Compute expensive operations once and share across tables
-- **File loading** - Built-in helpers for CSV and JSON file imports
-- **Stream support** - Memory-efficient seeding of large via lazy evaluation
-- **JSONB support** - Nested maps are automatically JSON-encoded for JSONB columns
-- **Transaction support** - Automatic rollback on errors
+- **Fast bulk inserts** of data into PostgreSQL
+- **Stream support** for memory-efficient seeding
+- **CSV/JSON loading** with built-in helpers
+- **JSONB support** with automatic JSON encoding
+- **Extensible** via adapters for other databases
 
-## Usage
+## Documentation
 
-Blink uses a callback-based pattern where you define:
-
-- Which tables to insert (via `with_table/2`)
-- What data goes in each table (via `table/2` callback)
-- Optional shared context (via `with_context/2` and `context/2` callback)
-
-### Using Data from Context
-
-Use context to compute expensive operations once and share across all tables:
-
-```elixir
-def call do
-  new()
-  |> with_context("timestamps")
-  |> with_table("users")
-  |> with_table("posts")
-  |> run(MyApp.Repo)
-end
-
-def context(_seeder, "timestamps") do
-  base = ~U[2024-01-01 00:00:00Z]
-  for day <- 0..29, do: DateTime.add(base, day, :day)
-end
-
-def table(seeder, "users") do
-  timestamps = seeder.context["timestamps"]
-  # Use shared timestamps...
-end
-
-def table(seeder, "posts") do
-  timestamps = seeder.context["timestamps"]
-  # Reuse same timestamps...
-end
-```
-
-### Loading from Files
-
-Load data from CSV or JSON files:
-
-```elixir
-def table(_seeder, "users") do
-  from_csv("priv/seed_data/users.csv",
-    transform: fn row ->
-      row
-      |> Map.update!("id", &String.to_integer/1)
-      |> Map.put("inserted_at", ~U[2024-01-01 00:00:00Z])
-      |> Map.put("updated_at", ~U[2024-01-01 00:00:00Z])
-    end
-  )
-end
-
-def table(_seeder, "products") do
-  from_json("priv/seed_data/products.json",
-    transform: fn product ->
-      Map.put(product, "inserted_at", ~U[2024-01-01 00:00:00Z])
-    end
-  )
-end
-```
-
-CSV files use the first row as headers by default. Both helpers accept a `:transform` option for type conversion or data manipulation. For large CSV files, use `stream: true` for memory-efficient processing.
-
-### Using Streams for Large Datasets
-
-For memory-efficient seeding of large datasets, `table/2` callbacks can return streams:
-
-```elixir
-def table(_seeder, "users") do
-  Stream.map(1..1_000_000, fn i ->
-    %{
-      id: i,
-      name: "User #{i}",
-      email: "user#{i}@example.com",
-      inserted_at: ~U[2024-01-01 00:00:00Z],
-      updated_at: ~U[2024-01-01 00:00:00Z]
-    }
-  end)
-end
-```
-
-Blink processes streams lazily, so the entire dataset doesn't need to fit in memory.
-
-### Using with ExMachina
-
-Combine ExMachina's factory pattern with Blink's fast insertion:
-
-```elixir
-defmodule MyApp.Seeder do
-  use Blink
-  import MyApp.Factory
-
-  def call do
-    new()
-    |> with_table("users")
-    |> with_table("posts")
-    |> run(MyApp.Repo)
-  end
-
-  def table(_seeder, "users") do
-    for _i <- 1..100 do
-      user = build(:user)
-      Map.put(user, :id, Ecto.UUID.generate())
-    end
-  end
-
-  def table(seeder, "posts") do
-    user_ids = Enum.map(seeder.tables["users"], & &1.id)
-
-    Enum.flat_map(user_ids, fn user_id ->
-      for _i <- 1..5 do
-        post = build(:post, user_id: user_id)
-        Map.put(post, :id, Ecto.UUID.generate())
-      end
-    end)
-  end
-end
-```
+See the [getting started guide](https://hexdocs.pm/blink/getting_started.html) and [full documentation](https://hexdocs.pm/blink) for more.
 
 ## Requirements
 
-| Requirement | Version               |
-| ----------- | --------------------- |
-| Elixir      | 1.15+                 |
-| Ecto        | 3.0+                  |
-| PostgreSQL  | Any supported version |
+- Elixir 1.15+
+- Ecto 3.0+
+- PostgreSQL
 
 ## License
 
-Copyright (c) 2026 Nerds and Company
-
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT - see [LICENSE](LICENSE) for details.
