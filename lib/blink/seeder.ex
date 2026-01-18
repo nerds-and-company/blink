@@ -143,7 +143,7 @@ defmodule Blink.Seeder do
       fn ->
         Enum.each(seeder.table_order, fn table_name ->
           items = Map.fetch!(seeder.tables, table_name)
-          Blink.copy_to_table(items, table_name, repo, opts)
+          Blink.copy_to_table(items, key_to_string(table_name), repo, opts)
         end)
 
         {:ok, :inserted}

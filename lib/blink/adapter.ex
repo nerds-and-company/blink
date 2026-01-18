@@ -31,7 +31,7 @@ defmodule Blink.Adapter do
     * `items` - An enumerable (list or stream) of maps where each map represents
       a row to insert. All maps must have the same keys, which correspond to the
       table columns.
-    * `table_name` - The name of the table to insert into (string or atom).
+    * `table_name` - The name of the table to insert into (string).
     * `repo` - An Ecto repository module.
     * `opts` - Keyword list of adapter-specific options.
 
@@ -43,7 +43,7 @@ defmodule Blink.Adapter do
   """
   @callback call(
               items :: Enumerable.t(),
-              table_name :: Blink.Seeder.key(),
+              table_name :: String.t(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
             ) :: :ok
@@ -56,7 +56,7 @@ defmodule Blink.Adapter do
   """
   @spec copy_to_table(
           items :: Enumerable.t(),
-          table_name :: Blink.Seeder.key(),
+          table_name :: String.t(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: :ok

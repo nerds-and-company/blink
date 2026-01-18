@@ -22,8 +22,6 @@ defmodule Blink.Adapter.Postgres do
   """
   @behaviour Blink.Adapter
 
-  import Blink.Seeder, only: [is_key: 1]
-
   @doc """
   Copies items into a database table using PostgreSQL's COPY command.
 
@@ -68,11 +66,11 @@ defmodule Blink.Adapter.Postgres do
   @impl true
   @spec call(
           items :: Enumerable.t(),
-          table_name :: Blink.Seeder.key(),
+          table_name :: String.t(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: :ok
-  def call(items, table_name, repo, opts \\ []) when is_key(table_name) and is_list(opts) do
+  def call(items, table_name, repo, opts \\ []) when is_binary(table_name) and is_list(opts) do
     case Enum.take(items, 1) do
       [] ->
         :ok
@@ -99,15 +97,12 @@ defmodule Blink.Adapter.Postgres do
     Ecto.Adapters.SQL.stream(
       repo,
       """
-      COPY #{key_to_string(table_name)} (#{columns_string})
+      COPY #{table_name} (#{columns_string})
       FROM STDIN
       WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
       """
     )
   end
-
-  defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
-  defp key_to_string(key) when is_binary(key), do: key
 
   defp escape_pattern do
     case Process.get(:blink_escape_pattern) do

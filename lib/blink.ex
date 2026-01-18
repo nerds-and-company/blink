@@ -233,7 +233,7 @@ defmodule Blink do
   """
   @spec copy_to_table(
           items :: Enumerable.t(),
-          table_name :: Seeder.key(),
+          table_name :: String.t(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: :ok
