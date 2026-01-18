@@ -35,7 +35,7 @@ defmodule Blog.Seeder do
 end
 ```
 
-By default, `from_csv/2` reads the first row as column headers and returns a list of maps with string keys. All values are returned as strings.
+By default, from_csv/2 reads the first row as column headers and returns all keys and values as strings.
 
 ### Transforming data
 
@@ -43,14 +43,12 @@ Use the `:transform` option to convert types and add required fields:
 
 ```elixir
 def table(_seeder, "users") do
-  base_time = ~U[2024-01-01 00:00:00Z]
-
   Blink.from_csv("priv/seed_data/users.csv",
     transform: fn row ->
       row
       |> Map.update!("id", &String.to_integer/1)
-      |> Map.put("inserted_at", base_time)
-      |> Map.put("updated_at", base_time)
+      |> Map.put("inserted_at", ~U[2024-01-01 00:00:00Z])
+      |> Map.put("updated_at", ~U[2024-01-01 00:00:00Z])
     end
   )
 end
@@ -102,9 +100,36 @@ end
 
 When `stream: true` is set, `from_csv/2` returns a stream instead of a list. Blink's insertion process handles streams efficiently.
 
+### JSONB columns in CSV files
+
+CSV files can also contain JSON data for JSONB columns, including deeply nested structures. Embed the JSON as a quoted string:
+
+```csv
+id,name,email,settings
+1,Alice,alice@example.com,"{""theme"":""dark"",""notifications"":{""email"":true,""sms"":false}}"
+2,Bob,bob@example.com,"{""theme"":""light"",""notifications"":{""email"":false,""sms"":true}}"
+```
+
+Use the `:transform` option to decode the JSON string:
+
+```elixir
+def table(_seeder, "users") do
+  Blink.from_csv("priv/seed_data/users_with_settings.csv",
+    transform: fn row ->
+      %{
+        id: String.to_integer(row["id"]),
+        name: row["name"],
+        email: row["email"],
+        settings: Jason.decode!(row["settings"])
+      }
+    end
+  )
+end
+```
+
 ## Loading from JSON files
 
-JSON files are useful when your data includes nested structures or when you need to preserve data types.
+JSON files are also supported via `from_json/2`.
 
 ### Basic usage
 
@@ -132,7 +157,7 @@ Note that `from_json/2` does not support the `:stream` option. For large dataset
 
 ### Transforming JSON data
 
-Use the `:transform` option to add timestamps or modify fields:
+Use the `:transform` option to add or modify fields:
 
 ```elixir
 def table(_seeder, "products") do
@@ -195,15 +220,13 @@ The functions `from_csv/2` and `from_json/2` will raise exceptions if:
 - For JSON: the root element is not an array, or the array contains non-object elements
 - For CSV: the `:headers` option is not `:infer` or a list of strings
 
-These errors help catch issues early in your seeding process.
-
 ## Summary
 
 In this guide, we learned how to:
 
 - Load data from CSV files with `from_csv/2`
+- Transform data with the `:transform` option
 - Handle CSV files without headers
 - Stream large CSV files with the `:stream` option
 - Load data from JSON files with `from_json/2`
 - Seed JSONB columns with nested maps
-- Transform data with the `:transform` option
