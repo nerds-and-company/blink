@@ -17,28 +17,12 @@ defmodule Blink.Adapter.Postgres do
 
   ## Implementation
 
-  The adapter implements the `Blink.Adapter` behavior by streaming data to
+  The adapter implements the `Blink.Adapter` behaviour by streaming data to
   PostgreSQL in CSV format using the pipe delimiter.
   """
   @behaviour Blink.Adapter
 
   import Blink.Seeder, only: [is_key: 1]
-
-  @doc """
-  Executes a bulk copy operation using PostgreSQL's COPY command.
-
-  This is the entry point for the Postgres adapter.
-  """
-  @impl true
-  @spec call(
-          items :: Enumerable.t(),
-          table_name :: Blink.Seeder.key(),
-          repo :: Ecto.Repo.t(),
-          opts :: Keyword.t()
-        ) :: :ok
-  def call(items, table_name, repo, opts \\ []) do
-    copy_to_table(items, table_name, repo, opts)
-  end
 
   @doc """
   Copies items into a database table using PostgreSQL's COPY command.
@@ -67,12 +51,12 @@ defmodule Blink.Adapter.Postgres do
   ## Examples
 
       iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
-      iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo)
+      iex> Blink.Adapter.Postgres.call(items, "users", MyApp.Repo)
       :ok
 
       # Using a stream for memory-efficient seeding
       iex> stream = Stream.map(1..1_000_000, fn i -> %{id: i, name: "User \#{i}"} end)
-      iex> Blink.Adapter.Postgres.copy_to_table(stream, "users", MyApp.Repo)
+      iex> Blink.Adapter.Postgres.call(stream, "users", MyApp.Repo)
       :ok
 
   ## Notes
@@ -81,47 +65,45 @@ defmodule Blink.Adapter.Postgres do
   as `\\N` in the CSV format. Nested maps are automatically JSON-encoded for
   JSONB columns.
   """
-  @spec copy_to_table(
+  @impl true
+  @spec call(
           items :: Enumerable.t(),
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: :ok
-  def copy_to_table(items, table_name, repo, opts \\ [])
-      when is_key(table_name) and is_atom(repo) and is_list(opts) do
-    # Take the first item to get columns; this works for both lists and streams
+  def call(items, table_name, repo, opts \\ []) when is_key(table_name) and is_list(opts) do
     case Enum.take(items, 1) do
       [] ->
         :ok
 
       [first | _] ->
         columns = Map.keys(first)
-        columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
-
-        repo_stream =
-          Ecto.Adapters.SQL.stream(
-            repo,
-            """
-            COPY #{key_to_string(table_name)} (#{columns_string})
-            FROM STDIN
-            WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
-            """
-          )
-
         pattern = escape_pattern()
         batch_size = Keyword.get(opts, :batch_size, 10_000)
 
         items
         |> chunk_items(batch_size)
-        |> Stream.into(repo_stream, fn batch ->
-          Enum.map(batch, fn row ->
-            row_to_csv(row, columns, pattern)
-          end)
+        |> Stream.into(copy_stream(repo, table_name, columns), fn batch ->
+          Enum.map(batch, &row_to_csv(&1, columns, pattern))
         end)
         |> Stream.run()
 
         :ok
     end
+  end
+
+  defp copy_stream(repo, table_name, columns) do
+    columns_string = Enum.map_join(columns, ", ", &~s("#{&1}"))
+
+    Ecto.Adapters.SQL.stream(
+      repo,
+      """
+      COPY #{key_to_string(table_name)} (#{columns_string})
+      FROM STDIN
+      WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
+      """
+    )
   end
 
   defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
