@@ -55,7 +55,7 @@ defmodule Blog.Seeder do
   def table(_seeder, "users") do
     [
       %{id: 1, name: "Alice", email: "alice@example.com"},
-      %{id: 2, name: "Bob", email: "bob@example.com"},
+      %{id: 2, name: "Bob", email: "bob@example.com"}
     ]
   end
 
@@ -63,15 +63,18 @@ defmodule Blog.Seeder do
     IO.inspect(seeder)
     # %Blink.Seeder{
     #   tables: %{"users" => [%{id: 1, name: "Alice", ...}, ...]},
-    #   ...
+    #   table_order: ["users"],
+    #   context: %{}  
     # }
 
-    Enum.flat_map(seeder.tables["users"], fn user ->
+    users = seeder.tables["users"]
+
+    Enum.flat_map(users, fn user ->
       for i <- 1..5 do
         %{
           id: (user.id - 1) * 5 + i,
           title: "Post #{i} by #{user.name}",
-          body: "This is the content of post #{i} by #{user.name}",
+          body: "This is the content of post #{i}.",
           user_id: user.id,
           inserted_at: ~U[2024-01-01 00:00:00Z],
           updated_at: ~U[2024-01-01 00:00:00Z]
@@ -90,7 +93,9 @@ The seeder above does the following:
 4. `table/2` - Defines what rows to insert into each table
 5. `run/2` - Executes the bulk insertion
 
-Each `table/2` callback receives a Seeder struct. The `tables` field stores data from previously declared tables, allowing the `"posts"` callback to reference `seeder.tables["users"]`. Tables are inserted in declaration order. The `context` field is covered below.
+Each `table/2` callback receives a Seeder struct. The `tables` field stores data from previously declared tables, allowing the `"posts"` callback to reference `seeder.tables["users"]`.
+
+Once `run/2` is called, data is inserted in the order tables were declared. The `context` field is covered below.
 
 Let's run it from IEx:
 
@@ -102,7 +107,9 @@ iex> Blog.Seeder.call()
 
 ## Streams
 
-The `table/2` callback can also return a stream for memory-efficient seeding of large datasets:
+In the example above, the `table/2` clauses returned lists. Since Blink stores the entire Seeder struct in memory, large lists can be problematic.
+
+To avoid this, `table/2` can return a stream instead:
 
 ```elixir
 def table(_seeder, "users") do
@@ -119,7 +126,7 @@ end
 
 def table(seeder, "posts") do
   Stream.flat_map(seeder.tables["users"], fn user ->
-    Stream.map(1..20, fn i ->
+    for i <- 1..20 do
       %{
         id: (user.id - 1) * 20 + i,
         title: "Post #{i} by #{user.name}",
@@ -128,18 +135,18 @@ def table(seeder, "posts") do
         inserted_at: ~U[2024-01-01 00:00:00Z],
         updated_at: ~U[2024-01-01 00:00:00Z]
       }
-    end)
+    end
   end)
 end
 ```
 
-Streams are processed lazily by `run/2`—no extra configuration needed—so they're recommended for large datasets to keep memory usage low.
+Streams are processed lazily by `run/2` without extra configuration needed.
 
 ## Using context
 
 Sometimes you need to compute data once and share it across multiple tables. Context data is not inserted into the database but is available when building your table data.
 
-In this example, we generate timestamps once and reuse them across tables, ensuring posts are created after their author.
+In this example, we generate timestamps once and reuse them across tables, ensuring posts are created after their author are.
 
 ```elixir
 def call do
@@ -157,14 +164,15 @@ end
 
 def table(seeder, "users") do
   timestamps = seeder.context["timestamps"]
+  random_timestamp = Enum.random(timestamps)
 
   for i <- 1..100 do
     %{
       id: i,
       name: "User #{i}",
       email: "user#{i}@example.com",
-      inserted_at: Enum.random(timestamps),
-      updated_at: Enum.random(timestamps)
+      inserted_at: random_timestamp,
+      updated_at: random_timestamp
     }
   end
 end
@@ -180,14 +188,16 @@ def table(seeder, "posts") do
         DateTime.compare(ts, user.inserted_at) == :gt
       end)
 
+    random_valid_timestamp = Enum.random(valid_timestamps)
+
     for i <- 1..5 do
       %{
         id: (user.id - 1) * 5 + i,
         title: "Post #{i}",
         body: "Content here",
         user_id: user.id,
-        inserted_at: Enum.random(valid_timestamps),
-        updated_at: Enum.random(valid_timestamps)
+        inserted_at: random_valid_timestamp,
+        updated_at: random_valid_timestamp
       }
     end
   end)
