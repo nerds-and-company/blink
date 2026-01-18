@@ -16,7 +16,7 @@ Add Blink to your dependencies in `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:blink, "~> 0.4.0"}
+    {:blink, "~> 0.5.0"}
   ]
 end
 ```
@@ -64,7 +64,7 @@ defmodule Blog.Seeder do
     # %Blink.Seeder{
     #   tables: %{"users" => [%{id: 1, name: "Alice", ...}, ...]},
     #   table_order: ["users"],
-    #   context: %{}  
+    #   context: %{}
     # }
 
     users = seeder.tables["users"]
@@ -103,7 +103,7 @@ Let's run it from IEx:
 iex -S mix
 iex> Blog.Seeder.call()
 # => Inserts 2 users and 10 posts
-``` 
+```
 
 ## Streams
 

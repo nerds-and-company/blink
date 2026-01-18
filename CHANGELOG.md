@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] - 2026-01-18
 
 ### Added
 - Added `:timeout` option to `run/3` to configure transaction timeout
@@ -50,5 +50,6 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.5.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.1
 [0.4.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.0
