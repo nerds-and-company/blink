@@ -558,8 +558,10 @@ defmodule BlinkIntegrationTest do
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
 
       assert users == [
-               {1, "Alice", %{"theme" => "dark", "notifications" => %{"email" => true, "sms" => false}}},
-               {2, "Bob", %{"theme" => "light", "notifications" => %{"email" => false, "sms" => true}}}
+               {1, "Alice",
+                %{"theme" => "dark", "notifications" => %{"email" => true, "sms" => false}}},
+               {2, "Bob",
+                %{"theme" => "light", "notifications" => %{"email" => false, "sms" => true}}}
              ]
     end
   end

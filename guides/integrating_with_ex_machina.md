@@ -1,6 +1,6 @@
 # Integrating with ExMachina
 
-ExMachina is a popular library for generating data in Elixir. Blink works seamlessly with ExMachina, allowing you to combine ExMachina's expressive factories with Blink's high-performance bulk insertion.
+ExMachina is a popular library for generating data in Elixir. Blink works seamlessly with ExMachina, allowing you to combine ExMachina's expressive factories with Blink's bulk insertion.
 
 ## Setting up ExMachina
 
@@ -62,11 +62,11 @@ defmodule Blog.Seeder do
   end
 
   def table(_seeder, "users") do
-    for i <- 1..1000 do
+    for _ <- 1..1000 do
       user = build(:user)
 
       Map.merge(user, %{
-        id: i,
+        id: Ecto.UUID.generate(),
         inserted_at: ~U[2024-01-01 00:00:00Z],
         updated_at: ~U[2024-01-01 00:00:00Z]
       })
@@ -75,7 +75,7 @@ defmodule Blog.Seeder do
 end
 ```
 
-ExMachina generates the names and emails, while you control the IDs and timestamps.
+In this example, ExMachina generates the names and emails, while you control the IDs and timestamps.
 
 ## Summary
 
