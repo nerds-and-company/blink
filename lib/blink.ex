@@ -209,19 +209,20 @@ defmodule Blink do
 
   ## Returns
 
-    * `{:ok, result}` - When the copy operation succeeds
-    * `{:error, reason}` - When the copy operation fails
+    * `:ok` - When the copy operation succeeds
+
+  Raises an exception when the copy operation fails.
 
   ## Examples
 
       iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
       iex> copy_to_table(items, "users", MyApp.Repo)
-      {:ok, _result}
+      :ok
 
       # Using a stream for memory-efficient seeding
       iex> stream = Stream.map(1..1_000_000, fn i -> %{id: i, name: "User \#{i}"} end)
       iex> copy_to_table(stream, "users", MyApp.Repo)
-      {:ok, _result}
+      :ok
 
   ## Notes
 
@@ -235,7 +236,7 @@ defmodule Blink do
           table_name :: Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, any()}
+        ) :: :ok
   defdelegate copy_to_table(items, table_name, repo, opts \\ []), to: Blink.Adapter
 
   @doc """

@@ -39,7 +39,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -67,7 +67,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -95,7 +95,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -123,7 +123,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -151,7 +151,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -179,7 +179,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -206,7 +206,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -236,7 +236,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -264,7 +264,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -294,7 +294,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -326,7 +326,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       # Verify data was inserted
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
@@ -360,7 +360,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       # Verify users
       users = Repo.all(from(u in "users", select: u.name))
@@ -388,7 +388,7 @@ defmodule BlinkIntegrationTest do
         def table(_seeder, "users"), do: []
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       # Verify no data was inserted
       users = Repo.all(from(u in "users", select: count()))
@@ -414,8 +414,8 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      # Should return error
-      assert {:error, _reason} = Dummy.call()
+      # Should raise an exception
+      assert_raise Postgrex.Error, fn -> Dummy.call() end
 
       # Verify nothing was inserted (transaction rolled back)
       users = Repo.all(from(u in "users", select: count()))
@@ -442,7 +442,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       # Verify only users table has data
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}))
@@ -479,7 +479,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
 
@@ -516,7 +516,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
 
@@ -553,7 +553,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.settings}, order_by: u.id))
 
@@ -587,7 +587,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       # Verify all data was inserted correctly regardless of key order
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
@@ -618,7 +618,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
@@ -662,7 +662,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
 
@@ -699,7 +699,7 @@ defmodule BlinkIntegrationTest do
         end
       end
 
-      assert {:ok, _} = Dummy.call()
+      assert :ok = Dummy.call()
 
       users = Repo.all(from(u in "users", select: count()))
       assert users == [0]

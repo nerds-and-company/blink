@@ -35,7 +35,7 @@ defmodule Blink.Adapter.Postgres do
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, Exception.t()}
+        ) :: :ok
   def call(items, table_name, repo, opts \\ []) do
     copy_to_table(items, table_name, repo, opts)
   end
@@ -60,20 +60,20 @@ defmodule Blink.Adapter.Postgres do
 
   ## Returns
 
-    * `{:ok, :empty}` - When the items enumerable is empty
-    * `{:ok, result}` - When the copy operation succeeds
-    * `{:error, exception}` - When the copy operation fails
+    * `:ok` - When the copy operation succeeds
+
+  Raises an exception when the copy operation fails.
 
   ## Examples
 
       iex> items = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
       iex> Blink.Adapter.Postgres.copy_to_table(items, "users", MyApp.Repo)
-      {:ok, _result}
+      :ok
 
       # Using a stream for memory-efficient seeding
       iex> stream = Stream.map(1..1_000_000, fn i -> %{id: i, name: "User \#{i}"} end)
       iex> Blink.Adapter.Postgres.copy_to_table(stream, "users", MyApp.Repo)
-      {:ok, _result}
+      :ok
 
   ## Notes
 
@@ -86,13 +86,13 @@ defmodule Blink.Adapter.Postgres do
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, :inserted} | {:error, Exception.t()}
+        ) :: :ok
   def copy_to_table(items, table_name, repo, opts \\ [])
       when is_key(table_name) and is_atom(repo) and is_list(opts) do
     # Take the first item to get columns; this works for both lists and streams
     case Enum.take(items, 1) do
       [] ->
-        {:ok, :empty}
+        :ok
 
       [first | _] ->
         columns = Map.keys(first)
@@ -120,10 +120,8 @@ defmodule Blink.Adapter.Postgres do
         end)
         |> Stream.run()
 
-        {:ok, :inserted}
+        :ok
     end
-  rescue
-    error -> {:error, error}
   end
 
   defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)

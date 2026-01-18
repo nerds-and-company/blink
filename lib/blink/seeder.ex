@@ -117,6 +117,12 @@ defmodule Blink.Seeder do
       Only applies to streams; lists are sent as a single batch. Adjust based
       on your data size and memory constraints.
 
+  ## Returns
+
+    * `:ok` - When all tables have been seeded successfully
+
+  Raises an exception when the seeding operation fails.
+
   ## Examples
 
       # With custom timeout for large datasets
@@ -129,8 +135,7 @@ defmodule Blink.Seeder do
       run(seeder, MyApp.Repo, batch_size: 5_000)
 
   """
-  @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
-          {:ok, any()} | {:error, any()}
+  @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
     timeout = Keyword.get(opts, :timeout, 15_000)
 
@@ -138,19 +143,15 @@ defmodule Blink.Seeder do
       fn ->
         Enum.each(seeder.table_order, fn table_name ->
           items = Map.fetch!(seeder.tables, table_name)
-
-          case Blink.copy_to_table(items, table_name, repo, opts) do
-            {:ok, _} -> :ok
-            {:error, reason} -> raise reason
-          end
+          Blink.copy_to_table(items, table_name, repo, opts)
         end)
 
         {:ok, :inserted}
       end,
       timeout: timeout
     )
-  rescue
-    e -> {:error, e}
+
+    :ok
   end
 
   @impl Access

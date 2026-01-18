@@ -15,7 +15,7 @@ defmodule Blink.Adapter do
         @impl true
         def call(items, table_name, repo, opts) do
           # Custom bulk copy implementation
-          {:ok, result}
+          :ok
         end
       end
 
@@ -37,15 +37,16 @@ defmodule Blink.Adapter do
 
   ## Returns
 
-    * `{:ok, result}` - When the copy operation succeeds
-    * `{:error, reason}` - When the copy operation fails
+    * `:ok` - When the copy operation succeeds
+
+  Raises an exception when the copy operation fails.
   """
   @callback call(
               items :: Enumerable.t(),
               table_name :: Blink.Seeder.key(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
-            ) :: {:ok, any()} | {:error, any()}
+            ) :: :ok
 
   @doc """
   Copies a list of items into a database table using the appropriate database
@@ -58,9 +59,9 @@ defmodule Blink.Adapter do
           table_name :: Blink.Seeder.key(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
-        ) :: {:ok, any()} | {:error, any()}
+        ) :: :ok
   def copy_to_table(items, table_name, repo, opts \\ []) do
-    adapter = Keyword.get(opts, :adapter, Blink.Adapter.Postgres)
+    {adapter, opts} = Keyword.pop(opts, :adapter, Blink.Adapter.Postgres)
 
     try do
       adapter.call(items, table_name, repo, opts)

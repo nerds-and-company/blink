@@ -14,6 +14,9 @@
 - **Breaking:** Renamed `Blink.Seeder.insert/3` to `Blink.Seeder.run/3`
 - **Breaking:** Renamed `add_table/2` to `with_table/2`
 - **Breaking:** Renamed `add_context/2` to `with_context/2`
+- **Breaking:** `run/3` now returns `:ok` on success and raises on failure (previously returned `{:ok, :inserted}` or `{:error, exception}`)
+- **Breaking:** `copy_to_table/4` now returns `:ok` on success and raises on failure
+- **Breaking:** Adapter `call/4` callback now returns `:ok` on success and raises on failure
 
 ### Fixed
 - Fixed CSV escaping in PostgreSQL COPY adapter: strings containing special characters (pipe `|`, double quotes `"`, newlines, carriage returns, backslashes) are now properly escaped to prevent data corruption
