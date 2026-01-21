@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1] - 2026-01-21
+
+### Changed
+- Removed try-rescue block in `copy_to_table/4` for invalid adapters, allowing standard Elixir error handling
+
+### Fixed
+- Fixed stream being materialized twice when seeding from CSV files
+
 ## [0.5.0] - 2026-01-18
 
 ### Added
@@ -50,6 +58,7 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.5.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.1
 [0.4.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.0
