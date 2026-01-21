@@ -71,24 +71,29 @@ defmodule Blink.Adapter.Postgres do
           opts :: Keyword.t()
         ) :: :ok
   def call(items, table_name, repo, opts \\ []) when is_binary(table_name) and is_list(opts) do
-    case Enum.take(items, 1) do
-      [] ->
-        :ok
+    pattern = escape_pattern()
+    batch_size = Keyword.get(opts, :batch_size, 10_000)
 
-      [first | _] ->
+    items
+    |> chunk_items(batch_size)
+    |> Enum.reduce(nil, fn
+      [], acc ->
+        acc
+
+      [first | _] = batch, nil ->
         columns = Map.keys(first)
-        pattern = escape_pattern()
-        batch_size = Keyword.get(opts, :batch_size, 10_000)
+        stream = copy_stream(repo, table_name, columns)
+        csv_rows = Enum.map(batch, &row_to_csv(&1, columns, pattern))
+        Enum.into([csv_rows], stream)
+        {columns, stream}
 
-        items
-        |> chunk_items(batch_size)
-        |> Stream.into(copy_stream(repo, table_name, columns), fn batch ->
-          Enum.map(batch, &row_to_csv(&1, columns, pattern))
-        end)
-        |> Stream.run()
+      batch, {columns, stream} ->
+        csv_rows = Enum.map(batch, &row_to_csv(&1, columns, pattern))
+        Enum.into([csv_rows], stream)
+        {columns, stream}
+    end)
 
-        :ok
-    end
+    :ok
   end
 
   defp copy_stream(repo, table_name, columns) do
