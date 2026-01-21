@@ -63,13 +63,6 @@ defmodule Blink.Adapter do
   def copy_to_table(items, table_name, repo, opts \\ []) do
     {adapter, opts} = Keyword.pop(opts, :adapter, Blink.Adapter.Postgres)
 
-    try do
-      adapter.call(items, table_name, repo, opts)
-    rescue
-      UndefinedFunctionError ->
-        reraise ArgumentError,
-                "adapter #{inspect(adapter)} must implement Blink.Adapter behaviour and define call/4",
-                __STACKTRACE__
-    end
+    adapter.call(items, table_name, repo, opts)
   end
 end
