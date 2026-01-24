@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Added `:max_concurrency` option to `run/3` and `copy_to_table/4` for parallel COPY operations (default: 6).
+- Added `:timeout` option to `copy_to_table/4` for batch operations (default: `:infinity`).
+- Added per-table options support via `with_table/4`: `:batch_size` and `:max_concurrency` can now be set per table, overriding the global options passed to `run/3`.
+
+### Changed
+- Batching now applies to both lists and streams (previously only streams were batched)
+
 ## [0.5.1] - 2026-01-21
 
 ### Changed

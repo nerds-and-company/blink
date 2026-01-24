@@ -12,24 +12,33 @@ defmodule Blink.Seeder do
       inserts respect foreign key constraints.
     * `:context` — auxiliary data available while constructing the `Seeder`, and
       will not be inserted into the database.
+    * `:table_opts` — per-table options (`:batch_size`, `:max_concurrency`)
+      used during the copy operation.
   """
 
   @behaviour Access
 
-  defstruct tables: %{}, table_order: [], context: %{}
+  defstruct tables: %{}, table_order: [], context: %{}, table_opts: %{}
 
   @type key :: binary() | atom()
 
+  @type table_opts :: [
+          {:batch_size, pos_integer()}
+          | {:max_concurrency, pos_integer()}
+        ]
+
   @type t :: %__MODULE__{
-          tables: map(),
+          tables: %{optional(key()) => Enumerable.t()},
           table_order: [key()],
-          context: map()
+          context: map(),
+          table_opts: %{optional(key()) => table_opts()}
         }
 
   @type empty :: %__MODULE__{
           tables: %{},
           table_order: [],
-          context: %{}
+          context: %{},
+          table_opts: %{}
         }
 
   defguard is_key(key) when is_binary(key) or is_atom(key)
@@ -40,7 +49,7 @@ defmodule Blink.Seeder do
   ## Example
 
       iex> Blink.Seeder.new()
-      %Blink.Seeder{tables: %{}, table_order: [], context: %{}}
+      %Blink.Seeder{tables: %{}, table_order: [], context: %{}, table_opts: %{}}
   """
   @spec new() :: empty()
   def new do
@@ -52,19 +61,38 @@ defmodule Blink.Seeder do
 
   The builder function should take a seeder and table name and return an
   enumerable (list or stream) of maps representing the table data.
+
+  ## Options
+
+    * `:batch_size` - Number of rows per batch. Overrides `:batch_size` in `run`.
+    * `:max_concurrency` - Number of parallel database connections. Overrides `:max_concurrency` in `run`.
+
+  ## Examples
+
+      # Without options (uses defaults from run)
+      Seeder.with_table(seeder, "users", &table/2)
+
+      # With custom batch size for a table with large rows
+      Seeder.with_table(seeder, "large_documents", &table/2, batch_size: 1_000)
+
+      # With custom concurrency for a specific table
+      Seeder.with_table(seeder, "heavy_table", &table/2, max_concurrency: 2)
+
   """
   @spec with_table(
           seeder :: t(),
           table_name :: key(),
-          builder :: (t(), key() -> Enumerable.t())
+          builder :: (t(), key() -> Enumerable.t()),
+          opts :: Keyword.t()
         ) :: t()
-  def with_table(%__MODULE__{} = seeder, table_name, builder)
+  def with_table(%__MODULE__{} = seeder, table_name, builder, opts \\ [])
       when is_key(table_name) and is_function(builder, 2) do
     raise_if_key_exists(seeder, table_name, :tables)
 
     seeder
     |> put_in([:tables, table_name], builder.(seeder, table_name))
     |> update_in([:table_order], fn order -> order ++ [table_name] end)
+    |> put_in([:table_opts, table_name], opts)
   end
 
   @doc """
@@ -114,8 +142,11 @@ defmodule Blink.Seeder do
       complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
       the timeout.
     * `:batch_size` - Number of rows per batch when streaming (default: 10,000).
-      Only applies to streams; lists are sent as a single batch. Adjust based
-      on your data size and memory constraints.
+      Can be overridden per-table via `with_table`.
+    * `:max_concurrency` - Maximum number of parallel database connections for
+      COPY operations (default: 6). Set to 1 for sequential execution, which
+      is required when using `Ecto.Adapters.SQL.Sandbox` in tests. Can be
+      overridden per-table via `with_table`.
 
   ## Returns
 
@@ -131,8 +162,8 @@ defmodule Blink.Seeder do
       # Disable timeout entirely
       run(seeder, MyApp.Repo, timeout: :infinity)
 
-      # Custom batch size for streams
-      run(seeder, MyApp.Repo, batch_size: 5_000)
+      # With custom batch size and concurrency
+      run(seeder, MyApp.Repo, batch_size: 5_000, max_concurrency: 4)
 
   """
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
@@ -143,7 +174,10 @@ defmodule Blink.Seeder do
       fn ->
         Enum.each(seeder.table_order, fn table_name ->
           items = Map.fetch!(seeder.tables, table_name)
-          Blink.copy_to_table(items, key_to_string(table_name), repo, opts)
+          table_opts = Map.fetch!(seeder.table_opts, table_name)
+          merged_opts = Keyword.merge(opts, table_opts)
+
+          Blink.copy_to_table(items, key_to_string(table_name), repo, merged_opts)
         end)
 
         {:ok, :inserted}
@@ -155,7 +189,8 @@ defmodule Blink.Seeder do
   end
 
   @impl Access
-  def fetch(%__MODULE__{} = seeder, key) when key in [:tables, :table_order, :context] do
+  def fetch(%__MODULE__{} = seeder, key)
+      when key in [:tables, :table_order, :context, :table_opts] do
     {:ok, Map.get(seeder, key)}
   end
 
@@ -163,7 +198,7 @@ defmodule Blink.Seeder do
 
   @impl Access
   def get_and_update(%__MODULE__{} = seeder, key, fun)
-      when key in [:tables, :table_order, :context] do
+      when key in [:tables, :table_order, :context, :table_opts] do
     {get_value, new_value} = fun.(Map.get(seeder, key))
     {get_value, Map.put(seeder, key, new_value)}
   end
@@ -171,7 +206,7 @@ defmodule Blink.Seeder do
   def get_and_update(seeder, _, _), do: {nil, seeder}
 
   @impl Access
-  def pop(%__MODULE__{} = seeder, key) when key in [:tables, :context] do
+  def pop(%__MODULE__{} = seeder, key) when key in [:tables, :context, :table_opts] do
     {Map.get(seeder, key), Map.put(seeder, key, %{})}
   end
 

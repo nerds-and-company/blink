@@ -35,13 +35,13 @@ defmodule Blink do
   ### Tables
 
   A mapping of table names to lists of records. These records will be persisted
-  to the database when `run/2` or `run/3` are called.
+  to the database when `run` is called.
 
   ### Context
 
   Stores arbitrary data needed during the seeding process. This data is
   available when building your seeds but is not inserted into the database by
-  `run/2` or `run/3`.
+  `run`.
 
   ## Basic Usage
 
@@ -49,11 +49,11 @@ defmodule Blink do
 
   - **Create**: Initialize an empty seeder with `new/0`.
 
-  - **Declare**: Declare when tables and context keys need to be added to the Seeder with `with_table/2` and `with_context/2`.
+  - **Declare**: Declare when tables and context keys need to be added to the Seeder with `with_table` and `with_context/2`.
 
   - **Build**: Define the data for each table and context key by adding `table/2` or `context/2` clauses.
 
-  - **Run**: Persist records to the database with `run/2` or `run/3`.
+  - **Run**: Persist records to the database with `run`.
 
   ### Example
 
@@ -81,11 +81,10 @@ defmodule Blink do
 
   ## Custom Logic for Running the Seeder
 
-  The functions `run/2` and `run/3` bulk insert the table records in a
-  `Seeder` into a Postgres database using Postgres' `COPY` command. You can
-  override the default implementation by defining your own `run/2` or
-  `run/3` function in your Blink module. Doing so you can support seeding
-  databases other than Postgres.
+  The `run` function bulk inserts the table records in a `Seeder` into a
+  Postgres database using Postgres' `COPY` command. You can override the
+  default implementation by defining your own `run` function in your Blink
+  module. Doing so you can support seeding databases other than Postgres.
   """
 
   alias Blink.Seeder
@@ -94,12 +93,12 @@ defmodule Blink do
   Builds and returns the records to be stored under a table key in the given
   `Seeder`.
 
-  The callback `table/2` is called by `with_table/2` internally, passing the
-  given database table name to `table/2`. Therefore, each table name passed to a
-  `with_table/2` clause must match a `table/2` clause.
+  The callback `table/2` is called by `with_table` internally, passing the given
+  database table name to `table/2`. Therefore, each table name passed to a
+  `with_table` clause must match a `table/2` clause.
 
   Data added to a Seeder with `table/2` is inserted into the corresponding
-  database table when calling `run/2` or `run/3`.
+  database table when calling `run`.
 
   The callback can return either a list or a stream of maps. Returning a stream
   enables memory-efficient seeding of large datasets.
@@ -116,8 +115,7 @@ defmodule Blink do
   given context key to `context/2`. Therefore, each key passed to a
   `with_context/2` clause must match a `context/2` clause.
 
-  `run/2` and `run/3` ignore the `:context` data and only insert data from
-  `:tables`.
+  `run` ignores the `:context` data and only inserts data from `:tables`.
 
   When the callback function is missing, an `ArgumentError` is raised.
   """
@@ -152,12 +150,22 @@ defmodule Blink do
           copy_to_table: 4
         ]
 
-      @spec with_table(seeder :: Seeder.t(), table_name :: Seeder.key()) ::
+      @doc """
+      Loads a table into the seeder using the module's `table/2` callback.
+
+      See `Blink.Seeder.with_table` for more information.
+      """
+      @spec with_table(seeder :: Seeder.t(), table_name :: Seeder.key(), opts :: Keyword.t()) ::
               Seeder.t()
-      def with_table(%Seeder{} = seeder, table_name) when is_key(table_name) do
-        Seeder.with_table(seeder, table_name, &table/2)
+      def with_table(%Seeder{} = seeder, table_name, opts \\ []) when is_key(table_name) do
+        Seeder.with_table(seeder, table_name, &table/2, opts)
       end
 
+      @doc """
+      Loads context into the seeder using the module's `context/2` callback.
+
+      See `Blink.Seeder.with_context/3` for more information.
+      """
       @spec with_context(seeder :: Seeder.t(), key :: Seeder.key()) :: Seeder.t()
       def with_context(%Seeder{} = seeder, key) when is_key(key) do
         Seeder.with_context(seeder, key, &context/2)
@@ -173,7 +181,7 @@ defmodule Blink do
       @impl true
       def table(%Seeder{}, table_name) do
         raise ArgumentError,
-              "you must define table/2 clauses that correspond with your calls to with_table/2"
+              "you must define table/2 clauses that correspond with your calls to with_table"
       end
 
       @impl true
@@ -206,6 +214,9 @@ defmodule Blink do
     * `repo` - An Ecto repository module.
     * `opts` - Keyword list of options:
       * `:adapter` - The adapter module to use. Defaults to `Blink.Adapter.Postgres`.
+      * `:batch_size` - Number of rows per batch (default: 10,000).
+      * `:max_concurrency` - Number of parallel COPY operations (default: 6).
+      * `:timeout` - Timeout in milliseconds for each batch operation (default: `:infinity`).
 
   ## Returns
 

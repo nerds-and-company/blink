@@ -151,7 +151,7 @@ defmodule BlinkTest do
       end
 
       assert_raise ArgumentError,
-                   "you must define table/2 clauses that correspond with your calls to with_table/2",
+                   "you must define table/2 clauses that correspond with your calls to with_table",
                    fn ->
                      Dummy.call()
                    end
