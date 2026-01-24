@@ -141,7 +141,7 @@ defmodule Blink.Seeder do
     * `:timeout` - The time in milliseconds to wait for the transaction to
       complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
       the timeout.
-    * `:batch_size` - Number of rows per batch when streaming (default: 10,000).
+    * `:batch_size` - Number of rows per batch when streaming (default: 8,000).
       Can be overridden per-table via `with_table`.
     * `:max_concurrency` - Maximum number of parallel database connections for
       COPY operations (default: 6). Set to 1 for sequential execution, which

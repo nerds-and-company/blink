@@ -73,7 +73,7 @@ defmodule Blink.Adapter.Postgres do
     * `table_name` - The name of the table to insert into (string or atom).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
     * `opts` - Keyword list of options:
-      * `:batch_size` - Number of rows per batch (default: 10,000). Items are
+      * `:batch_size` - Number of rows per batch (default: 8,000). Items are
         chunked into batches, each inserted via a separate COPY operation. To
         disable batching, set this to a value equal to or greater than the
         total number of rows.
@@ -117,7 +117,7 @@ defmodule Blink.Adapter.Postgres do
     context = %Context{
       repo: repo,
       table_name: table_name,
-      batch_size: Keyword.get(opts, :batch_size, 10_000),
+      batch_size: Keyword.get(opts, :batch_size, 8_000),
       max_concurrency: Keyword.get(opts, :max_concurrency, 6),
       timeout: Keyword.get(opts, :timeout, :infinity),
       esc_pattern: :binary.compile_pattern(@escape_chars)

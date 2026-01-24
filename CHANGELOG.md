@@ -8,6 +8,7 @@
 - Added per-table options support via `with_table/4`: `:batch_size` and `:max_concurrency` can now be set per table, overriding the global options passed to `run/3`.
 
 ### Changed
+- Changed default `:batch_size` from 10,000 to 8,000 based on performance benchmarks.
 - Batching now applies to both lists and streams (previously only streams were batched)
 
 ## [0.5.1] - 2026-01-21

@@ -214,7 +214,7 @@ defmodule Blink do
     * `repo` - An Ecto repository module.
     * `opts` - Keyword list of options:
       * `:adapter` - The adapter module to use. Defaults to `Blink.Adapter.Postgres`.
-      * `:batch_size` - Number of rows per batch (default: 10,000).
+      * `:batch_size` - Number of rows per batch (default: 8,000).
       * `:max_concurrency` - Number of parallel COPY operations (default: 6).
       * `:timeout` - Timeout in milliseconds for each batch operation (default: `:infinity`).
 
