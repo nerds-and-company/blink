@@ -70,7 +70,7 @@ defmodule Blink.Adapter.Postgres do
       a row to insert. All maps must have the same keys, which correspond to the
       table columns. Using a stream allows for memory-efficient seeding of large
       datasets.
-    * `table_name` - The name of the table to insert into (string or atom).
+    * `table_name` - The name of the table to insert into (string).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
     * `opts` - Keyword list of options:
       * `:batch_size` - Number of rows per batch (default: 8,000). Items are

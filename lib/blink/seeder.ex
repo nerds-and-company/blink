@@ -12,8 +12,8 @@ defmodule Blink.Seeder do
       inserts respect foreign key constraints.
     * `:context` — auxiliary data available while constructing the `Seeder`, and
       will not be inserted into the database.
-    * `:table_opts` — per-table options (`:batch_size`, `:max_concurrency`)
-      used during the copy operation.
+    * `:table_opts` — per-table options (`:batch_size`, `:max_concurrency`) used
+      during the copy operation.
   """
 
   @behaviour Access
@@ -64,8 +64,10 @@ defmodule Blink.Seeder do
 
   ## Options
 
-    * `:batch_size` - Number of rows per batch. Overrides `:batch_size` in `run`.
-    * `:max_concurrency` - Number of parallel database connections. Overrides `:max_concurrency` in `run`.
+    * `:batch_size` - Number of rows per batch. Overrides `:batch_size` in
+      `run/3`.
+    * `:max_concurrency` - Number of parallel database connections. Overrides
+      `:max_concurrency` in `run/3`.
 
   ## Examples
 
@@ -130,9 +132,8 @@ defmodule Blink.Seeder do
   Runs the seeder, inserting all table records into the given repository.
   Iterates over the tables in order when seeding the database.
 
-  The repo parameter must be a module that implements the Ecto.Repo
-  behaviour and is configured with a Postgres adapter (e.g.,
-  Ecto.Adapters.Postgres).
+  The repo parameter must be a module that implements the Ecto.Repo behaviour
+  and is configured with a Postgres adapter (e.g., Ecto.Adapters.Postgres).
 
   Data stored in the Seeder's context is ignored.
 
@@ -142,11 +143,11 @@ defmodule Blink.Seeder do
       complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
       the timeout.
     * `:batch_size` - Number of rows per batch when streaming (default: 8,000).
-      Can be overridden per-table via `with_table`.
+      Can be overridden per-table via `with_table/4`.
     * `:max_concurrency` - Maximum number of parallel database connections for
-      COPY operations (default: 6). Set to 1 for sequential execution, which
-      is required when using `Ecto.Adapters.SQL.Sandbox` in tests. Can be
-      overridden per-table via `with_table`.
+      COPY operations (default: 6). Set to 1 for sequential execution, which is
+      required when using `Ecto.Adapters.SQL.Sandbox` in tests. Can be
+      overridden per-table via `with_table/4`.
 
   ## Returns
 

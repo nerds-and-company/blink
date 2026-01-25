@@ -24,11 +24,11 @@ defmodule Blink.Adapter do
   """
 
   @doc """
-  Performs a bulk copy operation to insert items into a database table.
+  Performs a bulk copy operation to insert rows into a database table.
 
   ## Parameters
 
-    * `items` - An enumerable (list or stream) of maps where each map represents
+    * `rows` - An enumerable (list or stream) of maps where each map represents
       a row to insert. All maps must have the same keys, which correspond to the
       table columns.
     * `table_name` - The name of the table to insert into (string).
@@ -42,27 +42,26 @@ defmodule Blink.Adapter do
   Raises an exception when the copy operation fails.
   """
   @callback call(
-              items :: Enumerable.t(),
+              rows :: Enumerable.t(),
               table_name :: String.t(),
               repo :: Ecto.Repo.t(),
               opts :: Keyword.t()
             ) :: :ok
 
   @doc """
-  Copies a list of items into a database table using the appropriate database
-  adapter.
+  Copies rows into a database table using the appropriate database adapter.
 
   The adapter is selected based on the `:adapter` option in `opts`.
   """
   @spec copy_to_table(
-          items :: Enumerable.t(),
+          rows :: Enumerable.t(),
           table_name :: String.t(),
           repo :: Ecto.Repo.t(),
           opts :: Keyword.t()
         ) :: :ok
-  def copy_to_table(items, table_name, repo, opts \\ []) do
+  def copy_to_table(rows, table_name, repo, opts \\ []) do
     {adapter, opts} = Keyword.pop(opts, :adapter, Blink.Adapter.Postgres)
 
-    adapter.call(items, table_name, repo, opts)
+    adapter.call(rows, table_name, repo, opts)
   end
 end
