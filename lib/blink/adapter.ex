@@ -51,11 +51,6 @@ defmodule Blink.Adapter do
               opts :: Keyword.t()
             ) :: :ok
 
-  @doc """
-  Copies rows into a database table using the appropriate database adapter.
-
-  The adapter is selected based on the `:adapter` option in `opts`.
-  """
   @spec copy_to_table(
           rows :: Enumerable.t(),
           table_name :: String.t(),
