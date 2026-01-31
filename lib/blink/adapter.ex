@@ -1,11 +1,11 @@
 defmodule Blink.Adapter do
   @moduledoc """
-  Behaviour and routing for Blink database adapters.
+  Defines the adapter behaviour and dispatches to the selected adapter.
 
   Adapters are responsible for implementing database-specific bulk insert
-  operations. Each adapter must implement the `call/4` callback which performs
-  the bulk insertion using the appropriate database-specific mechanism (e.g.,
-  PostgreSQL's COPY, MySQL's LOAD DATA INFILE, etc.).
+  operations. Each adapter must implement the `call/4` callback to bulk insert
+  rows into a table using a database-specific mechanism (e.g., PostgreSQL's COPY
+  command).
 
   ## Example
 
@@ -20,6 +20,9 @@ defmodule Blink.Adapter do
       end
 
       # Usage
+      run(seeder, MyApp.Repo, adapter: MyApp.CustomAdapter)
+
+      # Or via copy_to_table/4
       Blink.copy_to_table(items, "users", MyApp.Repo, adapter: MyApp.CustomAdapter)
   """
 
