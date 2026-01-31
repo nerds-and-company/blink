@@ -14,11 +14,6 @@ defmodule Blink.Adapter.Postgres do
   Or explicitly:
 
       Blink.copy_to_table(rows, "users", MyApp.Repo, adapter: Blink.Adapter.Postgres)
-
-  ## Implementation
-
-  The adapter implements the `Blink.Adapter` behaviour by streaming data to
-  PostgreSQL in CSV format using the pipe delimiter.
   """
   @behaviour Blink.Adapter
 
@@ -26,17 +21,9 @@ defmodule Blink.Adapter.Postgres do
 
   defmodule Context do
     @moduledoc false
-    @enforce_keys [:repo, :table_name, :batch_size, :max_concurrency, :timeout, :esc_pattern]
-    defstruct [
-      :repo,
-      :table_name,
-      :batch_size,
-      :max_concurrency,
-      :timeout,
-      :esc_pattern,
-      :columns,
-      :columns_string
-    ]
+
+    @enforce_keys [:repo, :table_name, :batch_size, :max_concurrency, :timeout, :escape_cp]
+    defstruct @enforce_keys ++ [:columns, :columns_string]
 
     @type t :: %__MODULE__{
             repo: Ecto.Repo.t(),
@@ -44,7 +31,7 @@ defmodule Blink.Adapter.Postgres do
             batch_size: pos_integer(),
             max_concurrency: pos_integer(),
             timeout: timeout(),
-            esc_pattern: :binary.cp(),
+            escape_cp: :binary.cp(),
             columns: [atom() | String.t()] | nil,
             columns_string: String.t() | nil
           }
@@ -60,9 +47,6 @@ defmodule Blink.Adapter.Postgres do
 
   @doc """
   Copies rows into a database table using PostgreSQL's COPY command.
-
-  This function uses PostgreSQL's `COPY FROM STDIN` command for efficient bulk
-  insertion of data.
 
   ## Parameters
 
@@ -120,7 +104,7 @@ defmodule Blink.Adapter.Postgres do
       batch_size: Keyword.get(opts, :batch_size, 8_000),
       max_concurrency: Keyword.get(opts, :max_concurrency, 6),
       timeout: Keyword.get(opts, :timeout, :infinity),
-      esc_pattern: :binary.compile_pattern(@escape_chars)
+      escape_cp: :binary.compile_pattern(@escape_chars)
     }
 
     rows
@@ -199,12 +183,12 @@ defmodule Blink.Adapter.Postgres do
   defp execute_copy(batch, %{
          columns: columns,
          columns_string: columns_string,
-         esc_pattern: esc_pattern,
+         escape_cp: escape_cp,
          repo: repo,
          table_name: table_name,
          timeout: timeout
        }) do
-    csv_rows = Enum.map(batch, &row_to_csv(&1, columns, esc_pattern))
+    csv_rows = Enum.map(batch, &row_to_csv(&1, columns, escape_cp))
 
     copy_stream =
       Ecto.Adapters.SQL.stream(
@@ -222,25 +206,25 @@ defmodule Blink.Adapter.Postgres do
     )
   end
 
-  defp row_to_csv(row, [col], esc_pattern) do
-    [encode_value(Map.get(row, col), esc_pattern), "\n"]
+  defp row_to_csv(row, [col], escape_cp) do
+    [encode_value(Map.get(row, col), escape_cp), "\n"]
   end
 
-  defp row_to_csv(row, [col | rest], esc_pattern) do
-    [encode_value(Map.get(row, col), esc_pattern), "|" | row_to_csv(row, rest, esc_pattern)]
+  defp row_to_csv(row, [col | rest], escape_cp) do
+    [encode_value(Map.get(row, col), escape_cp), "|" | row_to_csv(row, rest, escape_cp)]
   end
 
-  defp encode_value(nil, _esc_pattern), do: "\\N"
-  defp encode_value(value, _esc_pattern) when is_integer(value), do: Integer.to_string(value)
-  defp encode_value(value, esc_pattern) when is_binary(value), do: escape(value, esc_pattern)
+  defp encode_value(nil, _escape_cp), do: "\\N"
+  defp encode_value(value, _escape_cp) when is_integer(value), do: Integer.to_string(value)
+  defp encode_value(value, escape_cp) when is_binary(value), do: maybe_escape(value, escape_cp)
 
-  defp encode_value(value, esc_pattern) when is_map(value),
-    do: escape(Jason.encode!(value), esc_pattern)
+  defp encode_value(value, escape_cp) when is_map(value),
+    do: maybe_escape(Jason.encode!(value), escape_cp)
 
-  defp encode_value(value, esc_pattern), do: escape(to_string(value), esc_pattern)
+  defp encode_value(value, escape_cp), do: maybe_escape(to_string(value), escape_cp)
 
-  defp escape(value, esc_pattern) do
-    case :binary.match(value, esc_pattern) do
+  defp maybe_escape(value, escape_cp) do
+    case :binary.match(value, escape_cp) do
       :nomatch -> value
       _ -> ["\"", String.replace(value, "\"", "\"\""), "\""]
     end
