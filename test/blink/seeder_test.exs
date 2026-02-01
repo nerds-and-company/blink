@@ -5,7 +5,7 @@ defmodule Blink.SeederTest do
 
   describe "new/0" do
     test "returns an empty Seeder" do
-      assert %Seeder{tables: %{}, table_order: [], context: %{}} = Seeder.new()
+      assert %Seeder{tables: %{}, table_order: [], context: %{}, table_opts: %{}} = Seeder.new()
     end
   end
 
@@ -181,6 +181,17 @@ defmodule Blink.SeederTest do
 
       assert %{"data" => [1, 2, 3]} = context
       assert %{} = new_seeder.context
+    end
+
+    test "pop_in/2 resets :table_opts to empty map" do
+      seeder =
+        Seeder.new()
+        |> Seeder.with_table("users", fn _, _ -> [] end, batch_size: 500)
+
+      {table_opts, new_seeder} = pop_in(seeder, [:table_opts])
+
+      assert %{"users" => [batch_size: 500]} = table_opts
+      assert %{} = new_seeder.table_opts
     end
 
     test "pop_in/2 returns {nil, seeder} for invalid keys" do

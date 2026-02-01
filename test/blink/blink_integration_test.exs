@@ -14,7 +14,6 @@ defmodule BlinkIntegrationTest do
     on_exit(fn ->
       :code.delete(Dummy)
       :code.purge(Dummy)
-      Ecto.Adapters.SQL.Sandbox.checkin(Repo)
     end)
 
     :ok
@@ -28,7 +27,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -58,7 +57,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -95,7 +94,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users"), do: []
@@ -115,7 +114,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -143,7 +142,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_context("users")
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def context(_seeder, "users") do
@@ -169,7 +168,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -203,7 +202,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -234,7 +233,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -286,7 +285,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -309,7 +308,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -347,7 +346,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -384,7 +383,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -425,7 +424,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -453,7 +452,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -481,7 +480,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -509,7 +508,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -537,7 +536,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -565,7 +564,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -593,7 +592,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -622,7 +621,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -650,12 +649,12 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
           [
-            %{id: 1, name: nil, email: "null_name@example.com"},
+            %{id: 1, name: nil, email: "name@example.com"},
             %{id: 2, name: "Bob", email: nil}
           ]
         end
@@ -666,7 +665,7 @@ defmodule BlinkIntegrationTest do
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
       assert users == [
-               {1, nil, "null_name@example.com"},
+               {1, nil, "name@example.com"},
                {2, "Bob", nil}
              ]
     end
@@ -678,7 +677,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo)
+          |> run(Repo, max_concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -700,6 +699,123 @@ defmodule BlinkIntegrationTest do
                {2, "Ελληνικά", "greek@example.com"},
                {3, "🎉🚀💻", "emoji@example.com"},
                {4, "Müller", "umlaut@example.com"}
+             ]
+    end
+  end
+
+  describe "per-table options" do
+    test "per-table options override global options" do
+      ref = :telemetry_test.attach_event_handlers(self(), [[:blink, :copy, :start]])
+
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users", batch_size: 500, max_concurrency: 1)
+          |> run(Repo, batch_size: 10_000, max_concurrency: 8)
+        end
+
+        def table(_seeder, "users"), do: [%{id: 1, name: "Alice", email: "alice@example.com"}]
+      end
+
+      Dummy.call()
+
+      assert_received {[:blink, :copy, :start], ^ref, %{}, %{batch_size: 500, max_concurrency: 1}}
+    end
+
+    test "global options are used when no per-table options specified" do
+      ref = :telemetry_test.attach_event_handlers(self(), [[:blink, :copy, :start]])
+
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> run(Repo, batch_size: 5_000, max_concurrency: 1)
+        end
+
+        def table(_seeder, "users"), do: [%{id: 1, name: "Alice", email: "alice@example.com"}]
+      end
+
+      Dummy.call()
+
+      assert_received {[:blink, :copy, :start], ^ref, %{},
+                       %{batch_size: 5_000, max_concurrency: 1}}
+    end
+  end
+
+  describe "batched COPY operations" do
+    test "inserts data in batches" do
+      items =
+        Stream.map(1..100, fn i ->
+          %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
+        end)
+
+      assert :ok =
+               Blink.copy_to_table(items, "users", Repo, batch_size: 10, max_concurrency: 1)
+
+      users = Repo.all(from(u in "users", select: count()))
+      assert users == [100]
+    end
+
+    test "handles list input" do
+      items =
+        Enum.map(1..50, fn i ->
+          %{id: i, name: "User #{i}", email: "user#{i}@example.com"}
+        end)
+
+      assert :ok =
+               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+
+      users = Repo.all(from(u in "users", select: count()))
+      assert users == [50]
+    end
+
+    test "handles fewer items than batch size" do
+      items = [
+        %{id: 1, name: "Alice", email: "alice@example.com"},
+        %{id: 2, name: "Bob", email: "bob@example.com"}
+      ]
+
+      assert :ok =
+               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice"},
+               {2, "Bob"}
+             ]
+    end
+
+    test "handles empty stream" do
+      items = Stream.map([], fn x -> x end)
+
+      assert :ok =
+               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+
+      users = Repo.all(from(u in "users", select: count()))
+      assert users == [0]
+    end
+
+    test "handles special characters" do
+      items = [
+        %{id: 1, name: "Alice|Bob", email: "pipe@example.com"},
+        %{id: 2, name: "Say \"Hello\"", email: "quote@example.com"},
+        %{id: 3, name: "Line1\nLine2", email: "newline@example.com"}
+      ]
+
+      assert :ok =
+               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+
+      users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
+
+      assert users == [
+               {1, "Alice|Bob", "pipe@example.com"},
+               {2, "Say \"Hello\"", "quote@example.com"},
+               {3, "Line1\nLine2", "newline@example.com"}
              ]
     end
   end

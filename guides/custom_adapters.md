@@ -8,8 +8,8 @@ All adapters must implement the `Blink.Adapter` behaviour, which requires a sing
 
 ```elixir
 @callback call(
-  items :: Enumerable.t(),
-  table_name :: binary() | atom(),
+  rows :: Enumerable.t(),
+  table_name :: String.t(),
   repo :: Ecto.Repo.t(),
   opts :: Keyword.t()
 ) :: :ok
@@ -17,7 +17,7 @@ All adapters must implement the `Blink.Adapter` behaviour, which requires a sing
 
 The `call/4` function receives:
 
-- `items` - An enumerable (list or stream) of maps to bulk insert into table
+- `rows` - An enumerable (list or stream) of maps to bulk insert
 - `table_name` - Target table name
 - `repo` - Ecto repository module
 - `opts` - Adapter-specific options
@@ -29,7 +29,7 @@ defmodule MyApp.Adapters.MySQL do
   @behaviour Blink.Adapter
 
   @impl true
-  def call(items, table_name, repo, opts \\ []) do
+  def call(rows, table_name, repo, opts \\ []) do
     # Your bulk insert implementation
     :ok
   end
