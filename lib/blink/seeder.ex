@@ -8,17 +8,15 @@ defmodule Blink.Seeder do
   A `Seeder` holds:
 
     * `:tables` — data that will be inserted into the database.
-    * `:table_order` - the order in which tables were added, used to ensure
-      inserts respect foreign key constraints.
-    * `:context` — auxiliary data available while constructing the `Seeder`, and
-      will not be inserted into the database.
+    * `:table_order` - the insertion order for tables.
     * `:table_opts` — per-table options (`:batch_size`, `:max_concurrency`) used
       during the copy operation.
+    * `:context` — auxiliary data used while building the seeder, not inserted.
   """
 
   @behaviour Access
 
-  defstruct tables: %{}, table_order: [], context: %{}, table_opts: %{}
+  defstruct tables: %{}, table_order: [], table_opts: %{}, context: %{}
 
   @type key :: binary() | atom()
 
@@ -30,15 +28,15 @@ defmodule Blink.Seeder do
   @type t :: %__MODULE__{
           tables: %{optional(key()) => Enumerable.t()},
           table_order: [key()],
-          context: map(),
-          table_opts: %{optional(key()) => table_opts()}
+          table_opts: %{optional(key()) => table_opts()},
+          context: map()
         }
 
   @type empty :: %__MODULE__{
           tables: %{},
           table_order: [],
-          context: %{},
-          table_opts: %{}
+          table_opts: %{},
+          context: %{}
         }
 
   defguard is_key(key) when is_binary(key) or is_atom(key)
@@ -49,7 +47,7 @@ defmodule Blink.Seeder do
   ## Example
 
       iex> Blink.Seeder.new()
-      %Blink.Seeder{tables: %{}, table_order: [], context: %{}, table_opts: %{}}
+      %Blink.Seeder{tables: %{}, table_order: [], table_opts: %{}, context: %{}}
   """
   @spec new() :: empty()
   def new do
@@ -64,27 +62,26 @@ defmodule Blink.Seeder do
 
   ## Options
 
+  The following options are specific to `Blink.Adapter.Postgres`:
+
     * `:batch_size` - Number of rows per batch. Overrides `:batch_size` in
       `run/3`.
-    * `:max_concurrency` - Number of parallel database connections. Overrides
-      `:max_concurrency` in `run/3`.
+    * `:max_concurrency` - Number of maximum parallel database connections.
+      Overrides `:max_concurrency` in `run/3`.
 
   ## Examples
 
-      # Without options (uses defaults from run)
+      # Without options (uses options from `run/3`)
       Seeder.with_table(seeder, "users", &table/2)
 
-      # With custom batch size for a table with large rows
-      Seeder.with_table(seeder, "large_documents", &table/2, batch_size: 1_000)
-
-      # With custom concurrency for a specific table
-      Seeder.with_table(seeder, "heavy_table", &table/2, max_concurrency: 2)
+      # With custom batch size and concurrency
+      Seeder.with_table(seeder, "users", &table/2, batch_size: 1_000, max_concurrency: 2)
 
   """
   @spec with_table(
           seeder :: t(),
           table_name :: key(),
-          builder :: (t(), key() -> Enumerable.t()),
+          builder :: (seeder :: t(), table_name :: key() -> Enumerable.t()),
           opts :: Keyword.t()
         ) :: t()
   def with_table(%__MODULE__{} = seeder, table_name, builder, opts \\ [])
@@ -105,7 +102,7 @@ defmodule Blink.Seeder do
   @spec with_context(
           seeder :: t(),
           key :: key(),
-          builder :: (t(), key() -> any())
+          builder :: (seeder :: t(), key :: key() -> any())
         ) :: t()
   def with_context(%__MODULE__{} = seeder, key, builder)
       when is_key(key) and is_function(builder, 2) do
@@ -140,13 +137,15 @@ defmodule Blink.Seeder do
   ## Options
 
     * `:timeout` - The time in milliseconds to wait for the transaction to
-      complete. Defaults to 15000 (15 seconds). Set to `:infinity` to disable
+      complete. Defaults to 15,000 (15 seconds). Set to `:infinity` to disable
       the timeout.
+
+  The following options are specific to `Blink.Adapter.Postgres`:
+
     * `:batch_size` - Number of rows per batch when streaming (default: 8,000).
       Can be overridden per-table via `with_table/4`.
     * `:max_concurrency` - Maximum number of parallel database connections for
-      COPY operations (default: 6). Set to 1 for sequential execution, which is
-      required when using `Ecto.Adapters.SQL.Sandbox` in tests. Can be
+      COPY operations (default: 6). Set to 1 for sequential execution. Can be
       overridden per-table via `with_table/4`.
 
   ## Returns
@@ -157,7 +156,7 @@ defmodule Blink.Seeder do
 
   ## Examples
 
-      # With custom timeout for large datasets
+      # With custom timeout
       run(seeder, MyApp.Repo, timeout: 60_000)
 
       # Disable timeout entirely
@@ -191,7 +190,7 @@ defmodule Blink.Seeder do
 
   @impl Access
   def fetch(%__MODULE__{} = seeder, key)
-      when key in [:tables, :table_order, :context, :table_opts] do
+      when key in [:tables, :table_order, :table_opts, :context] do
     {:ok, Map.get(seeder, key)}
   end
 
@@ -199,7 +198,7 @@ defmodule Blink.Seeder do
 
   @impl Access
   def get_and_update(%__MODULE__{} = seeder, key, fun)
-      when key in [:tables, :table_order, :context, :table_opts] do
+      when key in [:tables, :table_order, :table_opts, :context] do
     {get_value, new_value} = fun.(Map.get(seeder, key))
     {get_value, Map.put(seeder, key, new_value)}
   end
@@ -207,7 +206,7 @@ defmodule Blink.Seeder do
   def get_and_update(seeder, _, _), do: {nil, seeder}
 
   @impl Access
-  def pop(%__MODULE__{} = seeder, key) when key in [:tables, :context, :table_opts] do
+  def pop(%__MODULE__{} = seeder, key) when key in [:tables, :table_opts, :context] do
     {Map.get(seeder, key), Map.put(seeder, key, %{})}
   end
 
