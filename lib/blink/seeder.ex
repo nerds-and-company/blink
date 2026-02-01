@@ -142,7 +142,7 @@ defmodule Blink.Seeder do
 
   The following options are specific to `Blink.Adapter.Postgres`:
 
-    * `:batch_size` - Number of rows per batch when streaming (default: 8,000).
+    * `:batch_size` - Number of rows per batch (default: 8,000).
       Can be overridden per-table via `with_table/4`.
     * `:max_concurrency` - Maximum number of parallel database connections for
       COPY operations (default: 6). Set to 1 for sequential execution. Can be

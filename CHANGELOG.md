@@ -1,11 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.6.0] - 2026-02-01
 
 ### Added
 - Added `:max_concurrency` option to `run/3` and `copy_to_table/4` for parallel COPY operations (default: 6).
 - Added `:timeout` option to `copy_to_table/4` for batch operations (default: `:infinity`).
 - Added per-table options support via `with_table/4`: `:batch_size` and `:max_concurrency` can now be set per table, overriding the global options passed to `run/3`.
+- Added [Configuring Options](guides/configuring_options.md) guide.
 
 ### Changed
 - Changed default `:batch_size` from 10,000 to 8,000 based on performance benchmarks.
@@ -69,6 +70,7 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.6.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.6.0
 [0.5.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.4.1

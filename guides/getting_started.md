@@ -16,7 +16,7 @@ Add Blink to your dependencies in `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:blink, "~> 0.5.0"}
+    {:blink, "~> 0.6.0"}
   ]
 end
 ```
@@ -64,6 +64,7 @@ defmodule Blog.Seeder do
     # %Blink.Seeder{
     #   tables: %{"users" => [%{id: 1, name: "Alice", ...}, ...]},
     #   table_order: ["users"],
+    #   table_opts: %{"users" => []},
     #   context: %{}
     # }
 
@@ -217,5 +218,6 @@ In this guide, we learned how to:
 
 You might also find these guides useful:
 
+- [Configuring Options](configuring_options.html) - Set global and per-table options for batch size and concurrency
 - [Loading Data from Files](loading_data_from_files.html) - Learn how to load data from CSV and JSON files
 - [Integrating with ExMachina](integrating_with_ex_machina.html) - Generate realistic test data
