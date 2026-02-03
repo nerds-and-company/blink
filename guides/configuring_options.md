@@ -39,8 +39,8 @@ Per-table options override global options for specific tables. Pass them as the 
 ```elixir
 def call do
   new()
-  |> with_table("users", &table/2, batch_size: 1_000)
-  |> with_table("posts", &table/2, max_concurrency: 2)
+  |> with_table("users", batch_size: 1_000)
+  |> with_table("posts", max_concurrency: 2)
   |> run(Blog.Repo, batch_size: 5_000, max_concurrency: 4)
 end
 ```
