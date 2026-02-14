@@ -175,8 +175,7 @@ defmodule Blink do
       end
 
       @impl true
-      @spec run(seeder :: Seeder.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
-              {:ok, any()} | {:error, any()}
+      @spec run(seeder :: Seeder.t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
       defdelegate run(seeder, repo, opts \\ []), to: Seeder
 
       defoverridable Blink

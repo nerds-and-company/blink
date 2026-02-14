@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.1] - 2026-02-14
+
+### Fixed
+- Fixed `@spec` for `run/3` injected by `use Blink` returning `{:ok, any()} | {:error, any()}` instead of `:ok`
+
 ## [0.6.0] - 2026-02-01
 
 ### Added
@@ -70,6 +75,7 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.6.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.6.1
 [0.6.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.6.0
 [0.5.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.5.0
