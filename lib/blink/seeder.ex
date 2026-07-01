@@ -160,6 +160,28 @@ defmodule Blink.Seeder do
       COPY operations (default: 6). Set to 1 for sequential execution. Can be
       overridden per-table via `with_table/4`.
 
+  ## Atomicity
+
+  Whether a seed is all-or-nothing depends on the connection topology, which is
+  controlled by `:max_concurrency`:
+
+    * With `max_concurrency: 1`, every table is copied over a single connection
+      inside one surrounding transaction, so the whole seed is atomic — if any
+      table fails, all tables are rolled back.
+
+    * With `max_concurrency > 1` (the default is 6), batches are copied over
+      multiple connections in parallel. Each connection commits independently
+      and is *not* enrolled in the surrounding transaction, so a failure partway
+      through can leave already-copied batches and tables committed.
+
+  A seed that mixes `max_concurrency: 1` and `max_concurrency > 1` tables (via
+  `with_table/4`) is therefore not globally atomic. To guarantee all-or-nothing
+  seeding, use `max_concurrency: 1` for every table.
+
+  Because the parallel path also holds the surrounding transaction's connection
+  while its tasks check out their own, configure the repo's `pool_size` to at
+  least `max_concurrency + 1` to avoid connection starvation.
+
   ## Returns
 
     * `:ok` - When all tables have been seeded successfully

@@ -125,11 +125,11 @@ defmodule Blink.Adapter.Postgres do
         columns = Map.keys(first_row)
         context = Context.put_column_fields(context, columns)
         emit_telemetry(context)
-        execute_copy(batch, context)
+        check_copy!(execute_copy(batch, context))
         context
 
       batch, context ->
-        execute_copy(batch, context)
+        check_copy!(execute_copy(batch, context))
         context
     end)
 
@@ -158,13 +158,16 @@ defmodule Blink.Adapter.Postgres do
       timeout: :infinity
     )
     |> Stream.each(fn
-      {:ok, {:ok, _}} -> :ok
+      {:ok, result} -> check_copy!(result)
       other -> raise "COPY failed: #{inspect(other)}"
     end)
     |> Stream.run()
 
     :ok
   end
+
+  defp check_copy!({:ok, _result}), do: :ok
+  defp check_copy!(other), do: raise("COPY failed: #{inspect(other)}")
 
   defp emit_telemetry(%{
          table_name: table_name,

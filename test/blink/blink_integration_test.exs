@@ -194,6 +194,36 @@ defmodule BlinkIntegrationTest do
     end
   end
 
+  describe "atomicity" do
+    test "rolls back all tables when a later table fails (max_concurrency: 1)" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> with_table("posts")
+          |> run(Repo, max_concurrency: 1)
+        end
+
+        def table(_seeder, "users") do
+          [%{id: 1, name: "Alice", email: "alice@example.com"}]
+        end
+
+        def table(_seeder, "posts") do
+          # user_id 999 has no matching user, so the posts COPY fails after the
+          # users COPY has already run within the same surrounding transaction.
+          [%{id: 1, title: "Post", body: "Body", user_id: 999}]
+        end
+      end
+
+      assert_raise Postgrex.Error, fn -> Dummy.call() end
+
+      assert Repo.all(from(u in "users", select: count())) == [0]
+      assert Repo.all(from(p in "posts", select: count())) == [0]
+    end
+  end
+
   describe "stream support" do
     test "inserts data from a stream" do
       defmodule Dummy do
