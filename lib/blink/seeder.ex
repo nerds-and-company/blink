@@ -159,6 +159,10 @@ defmodule Blink.Seeder do
     * `:max_concurrency` - Maximum number of parallel database connections for
       COPY operations (default: 6). Set to 1 for sequential execution. Can be
       overridden per-table via `with_table/4`.
+    * `:strategy` - `:multi_connection` (default) or `:single_connection` for
+      atomic, single-connection seeding with parallel encoding. See
+      `Blink.Adapter.Postgres` for `:strategy`, `:encoder_concurrency`, and
+      `:ordered`.
 
   ## Atomicity
 
@@ -176,7 +180,9 @@ defmodule Blink.Seeder do
 
   A seed that mixes `max_concurrency: 1` and `max_concurrency > 1` tables (via
   `with_table/4`) is therefore not globally atomic. To guarantee all-or-nothing
-  seeding, use `max_concurrency: 1` for every table.
+  seeding, use `max_concurrency: 1` for every table, or `strategy:
+  :single_connection` (see `Blink.Adapter.Postgres`) which copies each table over
+  one connection while still encoding rows in parallel.
 
   Because the parallel path also holds the surrounding transaction's connection
   while its tasks check out their own, configure the repo's `pool_size` to at

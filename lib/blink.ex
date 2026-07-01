@@ -412,6 +412,13 @@ defmodule Blink do
       * `:max_concurrency` - Number of parallel COPY operations (default: 6).
       * `:timeout` - Timeout in milliseconds for each batch operation (default:
         `:infinity`).
+      * `:strategy` - `:multi_connection` (default; parallel and non-atomic) or
+        `:single_connection` (one atomic transaction with parallel encoding).
+        See `Blink.Adapter.Postgres` for details.
+      * `:encoder_concurrency` - Parallel row encoders for `:single_connection`
+        (default: `System.schedulers_online/0`).
+      * `:ordered` - Preserve input row order under `:single_connection`
+        (default: `true`).
 
   ## Returns
 
