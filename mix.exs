@@ -1,7 +1,7 @@
 defmodule Blink.MixProject do
   use Mix.Project
 
-  @version "0.6.1"
+  @version "0.6.2"
 
   def project do
     [
@@ -86,6 +86,7 @@ defmodule Blink.MixProject do
         "guides/loading_data_from_files.md",
         "guides/integrating_with_ex_machina.md",
         "guides/custom_adapters.md",
+        "guides/providing_data_directly.md",
         "CHANGELOG.md",
         "LICENSE"
       ],

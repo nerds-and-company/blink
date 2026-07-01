@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.2] - 2026-07-01
+
+### Added
+- `Blink.put_context/2,3` and `Blink.put_table/2,3,4` for building a seeder directly from data that is already available, without a `context/2` or `table/2` callback. The `/2` forms take a keyword list to add several keys/tables at once (e.g. `put_context(user_id: id, project_indices: idx)`); `put_table/4` forwards per-table options (e.g. `:batch_size`, `:max_concurrency`). All are imported into modules that `use Blink`.
+- Added the [Providing Data Directly](guides/providing_data_directly.md) guide.
+
 ## [0.6.1] - 2026-02-14
 
 ### Fixed
