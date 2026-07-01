@@ -146,9 +146,11 @@ defmodule Blink.Seeder do
 
   ## Options
 
-    * `:timeout` - The time in milliseconds to wait for the transaction to
-      complete. Defaults to 15,000 (15 seconds). Set to `:infinity` to disable
-      the timeout.
+    * `:timeout` - The time in milliseconds allowed for each database operation
+      (the surrounding transaction and every COPY). Defaults to 15,000 (15
+      seconds). This is a per-operation timeout enforced by the database
+      connection, not a wall-clock limit on the whole seed. Set to `:infinity`
+      to disable it.
 
   The following options are specific to `Blink.Adapter.Postgres`:
 
@@ -179,6 +181,7 @@ defmodule Blink.Seeder do
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
     timeout = Keyword.get(opts, :timeout, 15_000)
+    opts = Keyword.put(opts, :timeout, timeout)
 
     repo.transaction(
       fn ->
