@@ -483,8 +483,11 @@ defmodule Blink do
 
   ## Notes
 
-  For JSONB columns, use `:transform` to parse JSON strings into maps. The
-  Postgres adapter will automatically JSON-encode maps when inserting.
+  For JSONB columns, prefer leaving the value as the raw JSON string read from
+  the CSV. Since CSV values are already strings, an untransformed JSONB column is
+  inserted directly, skipping a JSON round trip. Only decode it into a map (via
+  `:transform`) when you need to inspect or modify the value before inserting —
+  the Postgres adapter will re-encode maps with `Jason.encode!/1` on the way in.
   """
   @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t()
   defdelegate from_csv(path, opts \\ []), to: Blink.CSV

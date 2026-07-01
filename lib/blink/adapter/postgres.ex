@@ -88,9 +88,11 @@ defmodule Blink.Adapter.Postgres do
 
   The function assumes all rows have the same keys. NULL values are represented
   as `\\N` in the CSV format. Nested maps are automatically JSON-encoded for
-  JSONB columns, and Elixir lists are encoded as PostgreSQL array literals for
-  array columns (`int[]`, `text[]`, `jsonb[]`, nested arrays, ...). A JSONB column
-  holding a top-level JSON array should be passed as a pre-encoded JSON string.
+  JSONB columns; values that are already JSON strings are inserted as-is, so
+  passing pre-encoded JSON avoids a redundant `Jason.encode!/1` call. Elixir
+  lists are encoded as PostgreSQL array literals for array columns (`int[]`,
+  `text[]`, `jsonb[]`, nested arrays, ...). A JSONB column holding a top-level
+  JSON array should be passed as a pre-encoded JSON string.
   """
   @impl true
   @spec call(

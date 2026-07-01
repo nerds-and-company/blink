@@ -110,7 +110,8 @@ id,name,email,settings
 2,Bob,bob@example.com,"{""theme"":""light"",""notifications"":{""email"":false,""sms"":true}}"
 ```
 
-Use the `:transform` option to decode the JSON string:
+The `settings` value read from the CSV is already a JSON string, so you can
+insert it into the JSONB column as-is — no decoding needed:
 
 ```elixir
 def table(_seeder, "users") do
@@ -120,12 +121,17 @@ def table(_seeder, "users") do
         id: String.to_integer(row["id"]),
         name: row["name"],
         email: row["email"],
-        settings: Jason.decode!(row["settings"])
+        settings: row["settings"]
       }
     end
   )
 end
 ```
+
+Decoding the string into a map (`Jason.decode!(row["settings"])`) is only worth
+it when you need to inspect or modify the value before inserting — the Postgres
+adapter re-encodes maps with `Jason.encode!/1` when copying, so decoding and then
+letting the adapter re-encode is a wasted round trip.
 
 ## Loading from JSON files
 
