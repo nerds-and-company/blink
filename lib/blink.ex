@@ -131,7 +131,12 @@ defmodule Blink do
           from_json: 1,
           from_json: 2,
           copy_to_table: 3,
-          copy_to_table: 4
+          copy_to_table: 4,
+          put_context: 2,
+          put_context: 3,
+          put_table: 2,
+          put_table: 3,
+          put_table: 4
         ]
 
       @doc """
@@ -180,6 +185,81 @@ defmodule Blink do
 
       defoverridable Blink
     end
+  end
+
+  @doc """
+  Adds several `{key, value}` pairs to the seeder's context at once.
+
+  A multi-key form of `put_context/3`; pairs are applied in order and each key
+  must be unique (as with `put_context/3`).
+
+  ## Examples
+
+      new()
+      |> put_context(user_id: user_id, project_indices: project_indices)
+  """
+  @spec put_context(seeder :: Seeder.t(), pairs :: [{Seeder.key(), any()}]) :: Seeder.t()
+  def put_context(seeder, pairs) when is_list(pairs) do
+    Enum.reduce(pairs, seeder, fn {key, value}, acc -> put_context(acc, key, value) end)
+  end
+
+  @doc """
+  Adds `value` to the seeder's context under `key`.
+
+  A convenience wrapper over `Blink.Seeder.with_context/3` for when the context
+  data is already available and you do not want to define a `context/2` callback.
+  Raises `ArgumentError` if `key` is already present.
+
+  ## Examples
+
+      new()
+      |> put_context(:generated_at, ~U[2024-01-01 00:00:00Z])
+  """
+  @spec put_context(seeder :: Seeder.t(), key :: Seeder.key(), value :: any()) :: Seeder.t()
+  def put_context(seeder, key, value) do
+    Seeder.with_context(seeder, key, fn _seeder, _key -> value end)
+  end
+
+  @doc """
+  Adds several `{table_name, rows}` pairs to the seeder at once.
+
+  A multi-table form of `put_table/3`; tables are added in order (which becomes
+  their insertion order) and each name must be unique. Per-table options are not
+  supported here — use `put_table/4` when you need them.
+
+  ## Examples
+
+      new()
+      |> put_table(users: users, posts: posts)
+  """
+  @spec put_table(seeder :: Seeder.t(), pairs :: [{Seeder.key(), Enumerable.t()}]) :: Seeder.t()
+  def put_table(seeder, pairs) when is_list(pairs) do
+    Enum.reduce(pairs, seeder, fn {table_name, rows}, acc -> put_table(acc, table_name, rows) end)
+  end
+
+  @doc """
+  Adds `rows` to the seeder under `table_name`.
+
+  A convenience wrapper over `Blink.Seeder.with_table/4` for when the rows are
+  already available and you do not want to define a `table/2` callback. `rows`
+  may be a list or a stream. `opts` (e.g. `:batch_size`, `:max_concurrency`) are
+  forwarded to `Blink.Seeder.with_table/4`. Raises `ArgumentError` if
+  `table_name` is already present.
+
+  ## Examples
+
+      new()
+      |> put_table("users", [%{id: 1, name: "Alice"}])
+      |> put_table("events", [%{id: 1, name: "Launch"}], batch_size: 1_000)
+  """
+  @spec put_table(
+          seeder :: Seeder.t(),
+          table_name :: Seeder.key(),
+          rows :: Enumerable.t(),
+          opts :: Keyword.t()
+        ) :: Seeder.t()
+  def put_table(seeder, table_name, rows, opts \\ []) do
+    Seeder.with_table(seeder, table_name, fn _seeder, _table_name -> rows end, opts)
   end
 
   @doc """
