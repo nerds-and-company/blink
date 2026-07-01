@@ -444,6 +444,29 @@ defmodule BlinkIntegrationTest do
                 %{"theme" => "light", "notifications" => %{"email" => false, "sms" => true}}}
              ]
     end
+
+    test "correctly encodes many rows that share JSONB maps across batches" do
+      settings_a = %{"theme" => "dark", "flags" => %{"beta" => true}}
+      settings_b = %{"theme" => "light", "flags" => %{"beta" => false}}
+
+      rows =
+        Enum.map(1..300, fn i ->
+          settings = if rem(i, 2) == 0, do: settings_a, else: settings_b
+          %{id: i, name: "User #{i}", email: "u#{i}@example.com", settings: settings}
+        end)
+
+      # batch_size 50 forces multiple batches; interleaved maps catch a cache
+      # that returns the wrong memoized value.
+      assert :ok = Blink.copy_to_table(rows, "users", Repo, max_concurrency: 1, batch_size: 50)
+
+      stored = Repo.all(from(u in "users", select: {u.id, u.settings}, order_by: u.id))
+
+      assert length(stored) == 300
+
+      assert Enum.all?(stored, fn {id, settings} ->
+               settings == if(rem(id, 2) == 0, do: settings_a, else: settings_b)
+             end)
+    end
   end
 
   describe "array columns" do

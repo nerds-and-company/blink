@@ -252,7 +252,7 @@ defmodule Blink.Adapter.Postgres do
          table_name: table_name,
          timeout: timeout
        }) do
-    csv_rows = Enum.map(batch, &row_to_csv(&1, columns, escape_cp))
+    csv_rows = rows_to_csv(batch, columns, escape_cp)
 
     copy_stream =
       Ecto.Adapters.SQL.stream(
@@ -317,7 +317,7 @@ defmodule Blink.Adapter.Postgres do
   # spawned task surfaces as a descriptive error rather than a raw process exit.
   defp encode_batch(batch, columns) do
     escape_cp = :binary.compile_pattern(@escape_chars)
-    {:ok, Enum.map(batch, &row_to_csv(&1, columns, escape_cp))}
+    {:ok, rows_to_csv(batch, columns, escape_cp)}
   rescue
     error -> {:error, error}
   end
@@ -326,13 +326,44 @@ defmodule Blink.Adapter.Postgres do
     Enum.find(batches, &(&1 != []))
   end
 
-  defp row_to_csv(row, [col], escape_cp) do
-    [encode_value(Map.get(row, col), escape_cp), "\n"]
+  # Encodes a batch to a list of CSV row iodata, memoizing the JSON encoding of
+  # map values within the batch. Seed data typically reuses a small number of
+  # distinct JSONB values across many rows, so this avoids re-running
+  # `Jason.encode!/1` on identical maps. The cache lives only for the batch.
+  defp rows_to_csv(batch, columns, escape_cp) do
+    {rows, _cache} =
+      Enum.map_reduce(batch, %{}, fn row, cache ->
+        row_to_csv(row, columns, escape_cp, cache)
+      end)
+
+    rows
   end
 
-  defp row_to_csv(row, [col | rest], escape_cp) do
-    [encode_value(Map.get(row, col), escape_cp), "|" | row_to_csv(row, rest, escape_cp)]
+  defp row_to_csv(row, [col], escape_cp, cache) do
+    {encoded, cache} = encode_value(Map.get(row, col), escape_cp, cache)
+    {[encoded, "\n"], cache}
   end
+
+  defp row_to_csv(row, [col | rest], escape_cp, cache) do
+    {encoded, cache} = encode_value(Map.get(row, col), escape_cp, cache)
+    {tail, cache} = row_to_csv(row, rest, escape_cp, cache)
+    {[encoded, "|" | tail], cache}
+  end
+
+  # Cache-aware encoding: only map values (the expensive, repeatable ones) are
+  # memoized; scalars use the plain per-value path below.
+  defp encode_value(value, escape_cp, cache) when is_map(value) do
+    case cache do
+      %{^value => encoded} ->
+        {encoded, cache}
+
+      _ ->
+        encoded = maybe_escape(Jason.encode!(value), escape_cp)
+        {encoded, Map.put(cache, value, encoded)}
+    end
+  end
+
+  defp encode_value(value, escape_cp, cache), do: {encode_value(value, escape_cp), cache}
 
   defp encode_value(nil, _escape_cp), do: "\\N"
   defp encode_value(value, _escape_cp) when is_integer(value), do: Integer.to_string(value)
