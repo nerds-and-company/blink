@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.3] - 2026-07-02
+
+### Fixed
+- Tightened the `ecto_sql` requirement from `~> 3.0` to `~> 3.13`. `Blink.Seeder.run/3` calls `Ecto.Repo.transact/2`, which was added in Ecto 3.13.0. Under the previous constraint the dependency resolved happily against Ecto 3.12, then raised `UndefinedFunctionError` at seed time; the requirement now fails at dependency resolution instead.
+
 ## [0.6.2] - 2026-07-01
 
 ### Added

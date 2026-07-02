@@ -1,7 +1,7 @@
 defmodule Blink.MixProject do
   use Mix.Project
 
-  @version "0.6.2"
+  @version "0.6.3"
 
   def project do
     [
@@ -45,7 +45,7 @@ defmodule Blink.MixProject do
 
   defp deps do
     [
-      {:ecto_sql, "~> 3.0"},
+      {:ecto_sql, "~> 3.13"},
       {:nimble_csv, "~> 1.2"},
       {:jason, "~> 1.4"},
       {:postgrex, "~> 0.17", only: :test},
