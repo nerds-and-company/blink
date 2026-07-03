@@ -88,7 +88,9 @@ defmodule Blink.Adapter.Postgres do
 
   The function assumes all rows have the same keys. NULL values are represented
   as `\\N` in the CSV format. Nested maps are automatically JSON-encoded for
-  JSONB columns.
+  JSONB columns, and Elixir lists are encoded as PostgreSQL array literals for
+  array columns (`int[]`, `text[]`, `jsonb[]`, nested arrays, ...). A JSONB column
+  holding a top-level JSON array should be passed as a pre-encoded JSON string.
   """
   @impl true
   @spec call(
@@ -221,6 +223,9 @@ defmodule Blink.Adapter.Postgres do
   defp encode_value(value, escape_cp) when is_map(value),
     do: maybe_escape(Jason.encode!(value), escape_cp)
 
+  defp encode_value(value, escape_cp) when is_list(value),
+    do: maybe_escape(IO.iodata_to_binary(encode_array(value)), escape_cp)
+
   defp encode_value(value, escape_cp), do: maybe_escape(to_string(value), escape_cp)
 
   defp maybe_escape(value, escape_cp) do
@@ -228,5 +233,25 @@ defmodule Blink.Adapter.Postgres do
       :nomatch -> value
       _ -> ["\"", String.replace(value, "\"", "\"\""), "\""]
     end
+  end
+
+  # The encoder never sees column types, so a list always becomes an array literal;
+  # a JSONB column holding a top-level JSON array must be passed as a pre-encoded
+  # JSON string instead.
+  defp encode_array(list),
+    do: [?{, Enum.map_intersperse(list, ?,, &encode_array_element/1), ?}]
+
+  defp encode_array_element(nil), do: "NULL"
+  defp encode_array_element(value) when is_integer(value), do: Integer.to_string(value)
+  defp encode_array_element(value) when is_boolean(value), do: to_string(value)
+  defp encode_array_element(value) when is_float(value), do: Float.to_string(value)
+  defp encode_array_element(value) when is_list(value), do: encode_array(value)
+  defp encode_array_element(value) when is_map(value), do: quote_element(Jason.encode!(value))
+  defp encode_array_element(value) when is_binary(value), do: quote_element(value)
+  defp encode_array_element(value), do: quote_element(to_string(value))
+
+  defp quote_element(string) do
+    escaped = string |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
+    [?", escaped, ?"]
   end
 end

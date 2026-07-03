@@ -416,6 +416,96 @@ defmodule BlinkIntegrationTest do
     end
   end
 
+  describe "array columns" do
+    test "encodes Elixir lists as PostgreSQL array literals" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("array_records")
+          |> run(Repo, max_concurrency: 1)
+        end
+
+        def table(_seeder, "array_records") do
+          [
+            %{
+              id: 1,
+              ints: [1, 2, 3],
+              strings: ["a", "b,c", ~s(quote"x), "back\\slash"],
+              docs: [%{"k" => 1}, %{"k" => 2, "nested" => %{"x" => true}}],
+              matrix: [[1, 2], [3, 4]]
+            },
+            %{id: 2, ints: [], strings: [], docs: [], matrix: []},
+            %{id: 3, ints: [10, nil, 30], strings: nil, docs: nil, matrix: nil}
+          ]
+        end
+      end
+
+      assert :ok = Dummy.call()
+
+      records =
+        Repo.all(
+          from(r in "array_records",
+            select: {r.id, r.ints, r.strings, r.docs, r.matrix},
+            order_by: r.id
+          )
+        )
+
+      assert records == [
+               {1, [1, 2, 3], ["a", "b,c", ~s(quote"x), "back\\slash"],
+                [%{"k" => 1}, %{"k" => 2, "nested" => %{"x" => true}}], [[1, 2], [3, 4]]},
+               {2, [], [], [], []},
+               {3, [10, nil, 30], nil, nil, nil}
+             ]
+    end
+
+    test "escapes special characters and edge values in text[] elements" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("array_records")
+          |> run(Repo, max_concurrency: 1)
+        end
+
+        def table(_seeder, "array_records") do
+          [
+            %{
+              id: 10,
+              strings: [
+                "a|b",
+                "line1\nline2",
+                "",
+                "NULL",
+                nil,
+                ~s(has"quote),
+                "brace{}s",
+                "back\\slash"
+              ]
+            }
+          ]
+        end
+      end
+
+      assert :ok = Dummy.call()
+
+      [strings] = Repo.all(from(r in "array_records", where: r.id == 10, select: r.strings))
+
+      assert strings == [
+               "a|b",
+               "line1\nline2",
+               "",
+               "NULL",
+               nil,
+               ~s(has"quote),
+               "brace{}s",
+               "back\\slash"
+             ]
+    end
+  end
+
   describe "special characters in values" do
     test "handles pipe delimiter in strings" do
       defmodule Dummy do
