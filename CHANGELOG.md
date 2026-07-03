@@ -1,9 +1,12 @@
 # Changelog
 
-## [0.6.4] - 2026-07-03
+## [0.7.0] - 2026-07-03
 
 ### Added
-- `Blink.Adapter.Postgres` now encodes Elixir lists as PostgreSQL array literals (`{...}`), so `int[]`, `text[]`, `jsonb[]` and nested-array columns can be seeded by passing plain lists. Previously a list fell through to `to_string/1`, which corrupted the value or raised. A JSONB column holding a top-level JSON array should still be passed as a pre-encoded JSON string.
+- `Blink.Adapter.Postgres` now encodes Elixir lists as PostgreSQL array literals (`{...}`), so `int[]`, `text[]`, `jsonb[]` and nested-array columns can be seeded by passing plain lists. A JSONB column holding a top-level JSON array should still be passed as a pre-encoded JSON string.
+
+### Changed
+- Lists are now encoded as array literals instead of falling through to `to_string/1`. Most lists previously corrupted the value or raised, but a charlist happened to coerce to text — so a charlist value for a `text` column now produces an array literal. Pass a binary string for text columns.
 
 ## [0.6.3] - 2026-07-02
 
