@@ -15,6 +15,14 @@ jobs:
       matrix:
         # https://hexdocs.pm/elixir/compatibility-and-deprecations.html#between-elixir-and-erlang-otp
         include:
+          # Elixir 1.20 (supports OTP 27-29)
+          - elixir: '1.20'
+            otp: '29'
+          - elixir: '1.20'
+            otp: '28'
+          - elixir: '1.20'
+            otp: '27'
+
           # Elixir 1.19 (supports OTP 26-28)
           - elixir: '1.19'
             otp: '28'
@@ -75,7 +83,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
@@ -84,7 +92,7 @@ jobs:
           otp-version: ${{ matrix.otp }}
 
       - name: Restore dependencies cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             deps
@@ -100,7 +108,7 @@ jobs:
         run: mix deps.compile
 
       - name: Compile project
-        run: mix compile
+        run: mix compile --warnings-as-errors
 
       - name: Run tests
         run: mix test
@@ -111,16 +119,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.19'
-          otp-version: '28'
+          elixir-version: '1.20'
+          otp-version: '29'
 
       - name: Restore dependencies cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             deps
@@ -135,52 +143,22 @@ jobs:
       - name: Check formatting
         run: mix format --check-formatted
 
-  warnings:
-    name: Check for warnings (Elixir 1.19.5)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
-        with:
-          elixir-version: '1.19.5'
-          otp-version: '28.3'
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-warnings-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-warnings-
-
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Compile with warnings as errors
-        run: mix compile --warnings-as-errors
-
   dialyzer:
     name: Dialyzer
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.19'
-          otp-version: '28'
+          elixir-version: '1.20'
+          otp-version: '29'
 
       - name: Restore dependencies cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             deps
@@ -190,13 +168,13 @@ jobs:
             ${{ runner.os }}-mix-dialyzer-
 
       - name: Restore PLT cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: plt-cache
         with:
           path: priv/plts
-          key: ${{ runner.os }}-plt-1.19-28-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-plt-1.20-29-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-plt-1.19-28-
+            ${{ runner.os }}-plt-1.20-29-
 
       - name: Install dependencies
         run: mix deps.get
