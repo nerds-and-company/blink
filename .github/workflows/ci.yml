@@ -90,12 +90,6 @@ jobs:
         with:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
-          # Disables warning/error annotations for this whole job, including
-          # our own code. Dependencies emit warnings we cannot fix (e.g.
-          # ecto_sql 3.14 on Elixir < 1.17); our own code compiles with
-          # --warnings-as-errors below, so its warnings fail the job instead
-          # of relying on annotations.
-          disable_problem_matchers: true
 
       - name: Restore dependencies cache
         uses: actions/cache@v6
