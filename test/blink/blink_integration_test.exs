@@ -459,6 +459,51 @@ defmodule BlinkIntegrationTest do
                {3, [10, nil, 30], nil, nil, nil}
              ]
     end
+
+    test "escapes special characters and edge values in text[] elements" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("array_records")
+          |> run(Repo, max_concurrency: 1)
+        end
+
+        def table(_seeder, "array_records") do
+          [
+            %{
+              id: 10,
+              strings: [
+                "a|b",
+                "line1\nline2",
+                "",
+                "NULL",
+                nil,
+                ~s(has"quote),
+                "brace{}s",
+                "back\\slash"
+              ]
+            }
+          ]
+        end
+      end
+
+      assert :ok = Dummy.call()
+
+      [strings] = Repo.all(from(r in "array_records", where: r.id == 10, select: r.strings))
+
+      assert strings == [
+               "a|b",
+               "line1\nline2",
+               "",
+               "NULL",
+               nil,
+               ~s(has"quote),
+               "brace{}s",
+               "back\\slash"
+             ]
+    end
   end
 
   describe "special characters in values" do
