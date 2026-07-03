@@ -90,9 +90,11 @@ jobs:
         with:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
-          # Dependency compilation on older Elixir versions emits warnings we
-          # cannot fix here; our own code is kept warning-free by the dedicated
-          # "Check for warnings" job.
+          # Disables warning/error annotations for this whole job, including
+          # our own code. Dependencies emit warnings we cannot fix (e.g.
+          # ecto_sql 3.14 on Elixir < 1.17); our own code compiles with
+          # --warnings-as-errors below, so its warnings fail the job instead
+          # of relying on annotations.
           disable_problem_matchers: true
 
       - name: Restore dependencies cache
@@ -112,7 +114,7 @@ jobs:
         run: mix deps.compile
 
       - name: Compile project
-        run: mix compile
+        run: mix compile --warnings-as-errors
 
       - name: Run tests
         run: mix test
