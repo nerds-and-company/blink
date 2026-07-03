@@ -371,7 +371,7 @@ defmodule Blink do
 
   A convenience wrapper over `Blink.Seeder.with_table/4` for when the rows are
   already available and you do not want to define a `table/2` callback. `rows`
-  may be a list or a stream. `opts` (e.g. `:batch_size`, `:max_concurrency`) are
+  may be a list or a stream. `opts` (`:batch_size`, `:concurrency`) are
   forwarded to `Blink.Seeder.with_table/4`. Raises `ArgumentError` if
   `table_name` is already present.
 
@@ -406,19 +406,10 @@ defmodule Blink do
       * `:adapter` - The adapter module to use. Defaults to
         `Blink.Adapter.Postgres`.
 
-      The following options are specific to `Blink.Adapter.Postgres`:
-
-      * `:batch_size` - Number of rows per batch (default: 8,000).
-      * `:max_concurrency` - Number of parallel COPY operations (default: 6).
-      * `:timeout` - Timeout in milliseconds for each batch operation (default:
-        `:infinity`).
-      * `:strategy` - `:multi_connection` (default; parallel and non-atomic) or
-        `:single_connection` (one atomic transaction with parallel encoding).
-        See `Blink.Adapter.Postgres` for details.
-      * `:encoder_concurrency` - Parallel row encoders for `:single_connection`
-        (default: `System.schedulers_online/0`).
-      * `:ordered` - Preserve input row order under `:single_connection`
-        (default: `true`).
+      All other options are adapter-specific and validated by the adapter —
+      unknown keys raise `ArgumentError`. See `Blink.Adapter.Postgres` for its
+      options: `:atomic` (all-or-nothing copy), `:concurrency`, `:batch_size`,
+      and `:timeout`.
 
   ## Returns
 

@@ -22,22 +22,19 @@ defmodule Blink.Adapter.Postgres do
   defmodule Context do
     @moduledoc false
 
-    @enforce_keys [:repo, :table_name, :batch_size, :max_concurrency, :timeout, :escape_cp]
-    defstruct @enforce_keys ++
-                [:columns, :columns_string, :strategy, :encoder_concurrency, :ordered]
+    @enforce_keys [:repo, :table_name, :batch_size, :concurrency, :timeout, :atomic, :escape_cp]
+    defstruct @enforce_keys ++ [:columns, :columns_string]
 
     @type t :: %__MODULE__{
             repo: Ecto.Repo.t(),
             table_name: String.t(),
             batch_size: pos_integer(),
-            max_concurrency: pos_integer(),
+            concurrency: pos_integer(),
             timeout: timeout(),
+            atomic: boolean(),
             escape_cp: :binary.cp(),
             columns: [atom() | String.t()] | nil,
-            columns_string: String.t() | nil,
-            strategy: :multi_connection | :single_connection,
-            encoder_concurrency: pos_integer(),
-            ordered: boolean()
+            columns_string: String.t() | nil
           }
 
     def put_column_fields(%__MODULE__{} = context, columns) when is_list(columns) do
@@ -57,34 +54,39 @@ defmodule Blink.Adapter.Postgres do
     * `rows` - An enumerable (list or stream) of maps where each map represents
       a row to insert. All maps must have the same keys, which correspond to the
       table columns. Using a stream allows for memory-efficient seeding of large
-      datasets.
+      datasets. The input is consumed exactly once, so single-use streams are
+      safe.
     * `table_name` - The name of the table to insert into (string).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
-    * `opts` - Keyword list of options:
+    * `opts` - Keyword list of options. Unknown keys and invalid values raise
+      `ArgumentError`:
+      * `:atomic` - Whether the copy is all-or-nothing (default: `false`).
+        * `false` - Workers copy batches over up to `:concurrency` database
+          connections in parallel and each batch commits independently.
+          Fastest, but a failure can leave earlier batches committed.
+        * `true` - All batches are copied over one connection inside a single
+          transaction while `:concurrency` workers encode rows in parallel.
+          Any failure rolls back the whole COPY, and the copy enrolls in a
+          surrounding transaction such as the one `Blink.Seeder.run/3` opens
+          for atomic seeds. Rows are copied in input order.
+      * `:concurrency` - Number of parallel workers (default: 6 when
+        `atomic: false`, `System.schedulers_online/0` when `atomic: true`).
+        With `atomic: false` each worker encodes and copies batches over its
+        own database connection, so configure the repo's `pool_size` to at
+        least `:concurrency`. With `atomic: true` workers only encode; a
+        single connection performs the COPY.
       * `:batch_size` - Number of rows per batch (default: 8,000). Items are
-        chunked into batches, each inserted via a separate COPY operation. To
-        disable batching, set this to a value equal to or greater than the
-        total number of rows.
-      * `:max_concurrency` - Number of parallel COPY operations (default: 6).
-        When greater than 1, batches are inserted using multiple database
-        connections in parallel. Ignored by the `:single_connection` strategy.
-      * `:timeout` - Timeout in milliseconds for each batch operation
-        (default: `:infinity`).
-      * `:strategy` - Execution strategy (default: `:multi_connection`):
-        * `:multi_connection` - Copies batches over up to `:max_concurrency`
-          database connections in parallel. Fastest for connection-bound
-          workloads, but batches commit independently, so it is **not** atomic.
-        * `:single_connection` - Copies all batches over one connection inside a
-          single transaction, encoding rows in parallel across cores. Atomic —
-          any failure rolls back the whole COPY — and it enrolls in a
-          surrounding transaction such as `Blink.Seeder.run/3`. Best when row
-          encoding (e.g. large JSONB) dominates.
-      * `:encoder_concurrency` - Number of parallel row encoders used by the
-        `:single_connection` strategy (default: `System.schedulers_online/0`).
-      * `:ordered` - For the `:single_connection` strategy, whether rows are
-        copied in input order (default: `true`). Order matters for
-        serial/identity columns and self-referential foreign keys; set to
-        `false` only for order-insensitive data to reduce buffering.
+        chunked into batches, each written via a separate COPY operation (or a
+        separate write to the single COPY when `atomic: true`). To disable
+        batching, set this to a value equal to or greater than the total
+        number of rows.
+      * `:timeout` - Time in milliseconds allowed for each database operation
+        (default: 15,000). With `atomic: false` this bounds each batch's COPY
+        transaction. With `atomic: true` it is enforced server-side as a
+        `statement_timeout` on each COPY statement, because a connection
+        checkout deadline cannot bound individual operations inside one
+        transaction. Set to `:infinity` to disable Blink's timeout (a
+        server-configured `statement_timeout` still applies).
 
   ## Returns
 
@@ -96,6 +98,10 @@ defmodule Blink.Adapter.Postgres do
 
       iex> rows = [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
       iex> Blink.Adapter.Postgres.call(rows, "users", MyApp.Repo)
+      :ok
+
+      # Atomic, all-or-nothing copy
+      iex> Blink.Adapter.Postgres.call(rows, "users", MyApp.Repo, atomic: true)
       :ok
 
       # Using a stream for memory-efficient seeding
@@ -112,10 +118,6 @@ defmodule Blink.Adapter.Postgres do
   lists are encoded as PostgreSQL array literals for array columns (`int[]`,
   `text[]`, `jsonb[]`, nested arrays, ...). A JSONB column holding a top-level
   JSON array should be passed as a pre-encoded JSON string.
-
-  The `:single_connection` strategy reads the input twice — once to determine the
-  columns and once to copy — so its input must be re-enumerable (lists and file-
-  or range-backed streams are; single-use resource streams are not).
   """
   @impl true
   @spec call(
@@ -125,19 +127,17 @@ defmodule Blink.Adapter.Postgres do
           opts :: Keyword.t()
         ) :: :ok
   def call(rows, table_name, repo, opts \\ []) when is_binary(table_name) and is_list(opts) do
-    strategy = Keyword.get(opts, :strategy, :multi_connection)
-    validate_strategy!(strategy)
+    opts = validate_opts!(opts)
+    atomic = Keyword.fetch!(opts, :atomic)
 
     context = %Context{
       repo: repo,
       table_name: table_name,
-      batch_size: Keyword.get(opts, :batch_size, 8_000),
-      max_concurrency: Keyword.get(opts, :max_concurrency, 6),
-      timeout: Keyword.get(opts, :timeout, :infinity),
-      escape_cp: :binary.compile_pattern(@escape_chars),
-      strategy: strategy,
-      encoder_concurrency: Keyword.get(opts, :encoder_concurrency, System.schedulers_online()),
-      ordered: Keyword.get(opts, :ordered, true)
+      batch_size: Keyword.fetch!(opts, :batch_size),
+      concurrency: Keyword.get_lazy(opts, :concurrency, fn -> default_concurrency(atomic) end),
+      timeout: Keyword.fetch!(opts, :timeout),
+      atomic: atomic,
+      escape_cp: :binary.compile_pattern(@escape_chars)
     }
 
     rows
@@ -145,61 +145,52 @@ defmodule Blink.Adapter.Postgres do
     |> run_copy(context)
   end
 
-  defp validate_strategy!(strategy) when strategy in [:multi_connection, :single_connection],
-    do: :ok
+  defp default_concurrency(true), do: System.schedulers_online()
+  defp default_concurrency(false), do: 6
 
-  defp validate_strategy!(strategy) do
-    raise ArgumentError,
-          "invalid :strategy #{inspect(strategy)}, expected :multi_connection or :single_connection"
+  defp validate_opts!(opts) do
+    opts =
+      Keyword.validate!(opts, [:concurrency, batch_size: 8_000, timeout: 15_000, atomic: false])
+
+    Enum.each(opts, &validate_opt!/1)
+    opts
   end
 
-  defp run_copy(batches, %Context{strategy: :single_connection} = context) do
-    case first_non_empty_batch(batches) do
-      nil ->
+  defp validate_opt!({:batch_size, value}) when is_integer(value) and value > 0, do: :ok
+  defp validate_opt!({:concurrency, value}) when is_integer(value) and value > 0, do: :ok
+
+  defp validate_opt!({:timeout, value})
+       when (is_integer(value) and value > 0) or value == :infinity, do: :ok
+
+  defp validate_opt!({:atomic, value}) when is_boolean(value), do: :ok
+
+  defp validate_opt!({key, value}) do
+    raise ArgumentError, "invalid value #{inspect(value)} for option #{inspect(key)}"
+  end
+
+  defp run_copy(batches, %Context{atomic: true} = context) do
+    case uncons(batches) do
+      :empty ->
         :ok
 
-      first_batch ->
+      {first_batch, rest} ->
         context = Context.put_column_fields(context, Map.keys(hd(first_batch)))
         emit_telemetry(context)
 
-        batches
-        |> Stream.reject(&(&1 == []))
-        |> execute_copy_pipelined(context)
+        [[first_batch], rest]
+        |> Stream.concat()
+        |> execute_copy_atomic(context)
         |> check_copy!()
 
         :ok
     end
   end
 
-  defp run_copy(batches, %Context{max_concurrency: 1} = context) do
-    Enum.reduce(batches, context, fn
-      [], context ->
-        context
-
-      [first_row | _] = batch, %{columns: nil} = context ->
-        columns = Map.keys(first_row)
-        context = Context.put_column_fields(context, columns)
-        emit_telemetry(context)
-        check_copy!(execute_copy(batch, context))
-        context
-
-      batch, context ->
-        check_copy!(execute_copy(batch, context))
-        context
-    end)
-
-    :ok
-  end
-
-  defp run_copy(batches, %Context{} = context) do
+  defp run_copy(batches, %Context{atomic: false} = context) do
     batches
     |> Stream.transform(context, fn
-      [], context ->
-        {[], context}
-
       [first_row | _] = batch, %{columns: nil} = context ->
-        columns = Map.keys(first_row)
-        context = Context.put_column_fields(context, columns)
+        context = Context.put_column_fields(context, Map.keys(first_row))
         emit_telemetry(context)
         {[{batch, context}], context}
 
@@ -207,18 +198,28 @@ defmodule Blink.Adapter.Postgres do
         {[{batch, context}], context}
     end)
     |> Task.async_stream(
-      fn {batch, context} -> execute_copy(batch, context) end,
-      max_concurrency: context.max_concurrency,
+      fn {batch, context} -> try_execute_copy(batch, context) end,
+      max_concurrency: context.concurrency,
       ordered: false,
       timeout: :infinity
     )
     |> Stream.each(fn
+      {:ok, {:raised, exception, stacktrace}} -> reraise(exception, stacktrace)
       {:ok, result} -> check_copy!(result)
-      other -> raise "COPY failed: #{inspect(other)}"
+      other -> check_copy!(other)
     end)
     |> Stream.run()
 
     :ok
+  end
+
+  # Captures exceptions so a failed COPY re-raises in the calling process with
+  # its original stacktrace, rather than exiting the caller through the task
+  # link.
+  defp try_execute_copy(batch, context) do
+    execute_copy(batch, context)
+  rescue
+    exception -> {:raised, exception, __STACKTRACE__}
   end
 
   defp check_copy!({:ok, _result}), do: :ok
@@ -227,9 +228,9 @@ defmodule Blink.Adapter.Postgres do
   defp emit_telemetry(%{
          table_name: table_name,
          batch_size: batch_size,
-         max_concurrency: max_concurrency,
+         concurrency: concurrency,
          timeout: timeout,
-         strategy: strategy
+         atomic: atomic
        }) do
     :telemetry.execute(
       [:blink, :copy, :start],
@@ -237,93 +238,114 @@ defmodule Blink.Adapter.Postgres do
       %{
         table_name: table_name,
         batch_size: batch_size,
-        max_concurrency: max_concurrency,
+        concurrency: concurrency,
         timeout: timeout,
-        strategy: strategy
+        atomic: atomic
       }
     )
   end
 
-  defp execute_copy(batch, %{
-         columns: columns,
-         columns_string: columns_string,
-         escape_cp: escape_cp,
-         repo: repo,
-         table_name: table_name,
-         timeout: timeout
-       }) do
+  defp execute_copy(
+         batch,
+         %{repo: repo, columns: columns, escape_cp: escape_cp, timeout: timeout} = context
+       ) do
     csv_rows = rows_to_csv(batch, columns, escape_cp)
 
-    copy_stream =
-      Ecto.Adapters.SQL.stream(
-        repo,
-        """
-        COPY #{table_name} (#{columns_string})
-        FROM STDIN
-        WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
-        """
-      )
-
     repo.transaction(
-      fn -> Enum.into([csv_rows], copy_stream) end,
+      fn -> Enum.into([csv_rows], copy_stream(context)) end,
       timeout: timeout
     )
   end
 
-  # Single-connection strategy: encode batches in parallel across cores, then
-  # feed them into one COPY on one connection inside one transaction. Because the
-  # COPY runs in the calling process, it enrolls in any surrounding transaction
-  # (e.g. `Blink.Seeder.run/3`), keeping the whole seed atomic.
-  defp execute_copy_pipelined(batches, %{
-         columns: columns,
-         columns_string: columns_string,
-         repo: repo,
-         table_name: table_name,
-         timeout: timeout,
-         encoder_concurrency: encoder_concurrency,
-         ordered: ordered
-       }) do
-    copy_stream =
-      Ecto.Adapters.SQL.stream(
-        repo,
-        """
-        COPY #{table_name} (#{columns_string})
-        FROM STDIN
-        WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
-        """
-      )
+  # Atomic mode: encode batches in parallel across cores, then feed them into
+  # one COPY on one connection inside one transaction. Because the COPY runs in
+  # the calling process, it enrolls in any surrounding transaction (e.g. the one
+  # `Blink.Seeder.run/3` opens for atomic seeds). The checkout timeout is
+  # :infinity because the connection is held for the whole copy; DBConnection
+  # ignores opts on nested transactions anyway, so the per-operation `:timeout`
+  # is enforced server-side instead.
+  defp execute_copy_atomic(batches, context) do
+    %{
+      repo: repo,
+      columns: columns,
+      escape_cp: escape_cp,
+      timeout: timeout,
+      concurrency: concurrency
+    } = context
 
     repo.transaction(
       fn ->
+        set_statement_timeout(repo, timeout)
+
         batches
         |> Task.async_stream(
-          fn batch -> encode_batch(batch, columns) end,
-          max_concurrency: encoder_concurrency,
-          ordered: ordered,
-          timeout: timeout
+          fn batch -> encode_batch(batch, columns, escape_cp) end,
+          max_concurrency: concurrency,
+          timeout: :infinity
         )
         |> Stream.map(fn
           {:ok, {:ok, iodata}} -> iodata
           {:ok, {:error, error}} -> raise "COPY encode failed: #{Exception.message(error)}"
           {:exit, reason} -> raise "COPY encode failed: #{inspect(reason)}"
         end)
-        |> Enum.into(copy_stream)
+        |> Enum.into(copy_stream(context))
       end,
-      timeout: timeout
+      timeout: :infinity
     )
   end
 
-  # Encodes a batch to CSV iodata, tagging the result so an encoding failure in a
-  # spawned task surfaces as a descriptive error rather than a raw process exit.
-  defp encode_batch(batch, columns) do
-    escape_cp = :binary.compile_pattern(@escape_chars)
+  # SET LOCAL is scoped to the enclosing transaction, so this gives each COPY a
+  # server-side timeout — the only per-operation mechanism available inside a
+  # single transaction. :infinity leaves any server-configured value in place.
+  defp set_statement_timeout(_repo, :infinity), do: :ok
+
+  defp set_statement_timeout(repo, timeout) when is_integer(timeout) do
+    repo.query!("SET LOCAL statement_timeout = #{timeout}")
+  end
+
+  defp copy_stream(%{repo: repo, table_name: table_name, columns_string: columns_string}) do
+    Ecto.Adapters.SQL.stream(
+      repo,
+      """
+      COPY #{table_name} (#{columns_string})
+      FROM STDIN
+      WITH (FORMAT csv, DELIMITER '|', NULL '\\N')
+      """
+    )
+  end
+
+  # Tags the result so an encoding failure in a worker surfaces as a descriptive
+  # error rather than a raw process exit.
+  defp encode_batch(batch, columns, escape_cp) do
     {:ok, rows_to_csv(batch, columns, escape_cp)}
   rescue
     error -> {:error, error}
   end
 
-  defp first_non_empty_batch(batches) do
-    Enum.find(batches, &(&1 != []))
+  # Splits an enumerable into its first element and a stream of the rest without
+  # enumerating the source twice, so single-use streams are safe. The suspended
+  # continuation is abandoned (its cleanup does not run) if the copy raises
+  # mid-stream.
+  defp uncons(enum) do
+    case Enumerable.reduce(enum, {:cont, nil}, fn elem, _acc -> {:suspend, elem} end) do
+      {:suspended, first, cont} -> {first, resume_stream(cont)}
+      {:done, _acc} -> :empty
+      {:halted, _acc} -> :empty
+    end
+  end
+
+  defp resume_stream(cont) do
+    Stream.resource(
+      fn -> cont end,
+      fn cont ->
+        case cont.({:cont, nil}) do
+          {:suspended, elem, cont} -> {[elem], cont}
+          {:done, _acc} -> {:halt, :done}
+          {:halted, _acc} -> {:halt, :done}
+        end
+      end,
+      fn _ -> :ok end
+    )
   end
 
   # Encodes a batch to a list of CSV row iodata, memoizing the JSON encoding of
@@ -350,8 +372,6 @@ defmodule Blink.Adapter.Postgres do
     {[encoded, "|" | tail], cache}
   end
 
-  # Cache-aware encoding: only map values (the expensive, repeatable ones) are
-  # memoized; scalars use the plain per-value path below.
   defp encode_value(value, escape_cp, cache) when is_map(value) do
     case cache do
       %{^value => encoded} ->

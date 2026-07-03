@@ -36,7 +36,9 @@ defmodule Blink.Adapter do
       table columns.
     * `table_name` - The name of the table to insert into (string).
     * `repo` - An Ecto repository module.
-    * `opts` - Keyword list of adapter-specific options.
+    * `opts` - Keyword list of adapter-specific options. Adapters own their
+      option vocabulary and should validate it, raising `ArgumentError` on
+      unknown keys or invalid values (`Keyword.validate!/2` covers the former).
 
   ## Returns
 

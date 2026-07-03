@@ -1,4 +1,4 @@
-defmodule Blink.SingleConnectionTest do
+defmodule Blink.AtomicTest do
   use ExUnit.Case, async: true
 
   import Ecto.Query, warn: false
@@ -12,14 +12,14 @@ defmodule Blink.SingleConnectionTest do
     :ok
   end
 
-  describe "strategy: :single_connection" do
+  describe "atomic: true" do
     test "inserts rows" do
       rows = [
         %{id: 1, name: "Alice", email: "alice@example.com"},
         %{id: 2, name: "Bob", email: "bob@example.com"}
       ]
 
-      assert :ok = Blink.copy_to_table(rows, "users", Repo, strategy: :single_connection)
+      assert :ok = Blink.copy_to_table(rows, "users", Repo, atomic: true)
 
       users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
       assert users == [{1, "Alice"}, {2, "Bob"}]
@@ -28,7 +28,7 @@ defmodule Blink.SingleConnectionTest do
     test "encodes JSONB maps correctly" do
       rows = [%{id: 1, name: "Alice", email: "alice@example.com", settings: %{"theme" => "dark"}}]
 
-      assert :ok = Blink.copy_to_table(rows, "users", Repo, strategy: :single_connection)
+      assert :ok = Blink.copy_to_table(rows, "users", Repo, atomic: true)
 
       assert Repo.all(from(u in "users", select: u.settings)) == [%{"theme" => "dark"}]
     end
@@ -37,48 +37,50 @@ defmodule Blink.SingleConnectionTest do
       stream =
         Stream.map(1..100, fn i -> %{id: i, name: "User #{i}", email: "u#{i}@example.com"} end)
 
-      assert :ok =
-               Blink.copy_to_table(stream, "users", Repo,
-                 strategy: :single_connection,
-                 batch_size: 10
-               )
+      assert :ok = Blink.copy_to_table(stream, "users", Repo, atomic: true, batch_size: 10)
 
       assert Repo.all(from(u in "users", select: count())) == [100]
     end
 
+    test "consumes a single-use stream exactly once" do
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      # A stateful source: re-enumeration would resume mid-stream instead of
+      # restarting, so any double consumption shows up as missing rows.
+      rows =
+        Stream.resource(
+          fn -> :ok end,
+          fn acc ->
+            n = Agent.get_and_update(counter, &{&1, &1 + 1})
+            if n < 100, do: {[%{position: n}], acc}, else: {:halt, acc}
+          end,
+          fn _ -> :ok end
+        )
+
+      assert :ok = Blink.copy_to_table(rows, "serial_items", Repo, atomic: true, batch_size: 10)
+
+      positions = Repo.all(from(s in "serial_items", select: s.position, order_by: s.position))
+      assert positions == Enum.to_list(0..99)
+    end
+
     test "handles empty input" do
-      assert :ok = Blink.copy_to_table([], "users", Repo, strategy: :single_connection)
+      assert :ok = Blink.copy_to_table([], "users", Repo, atomic: true)
       assert Repo.all(from(u in "users", select: count())) == [0]
     end
 
-    test "preserves input row order across parallel-encoded batches (ordered: true default)" do
+    test "preserves input row order across parallel-encoded batches" do
       rows = Enum.map(1..500, fn i -> %{position: i} end)
 
       assert :ok =
                Blink.copy_to_table(rows, "serial_items", Repo,
-                 strategy: :single_connection,
+                 atomic: true,
                  batch_size: 25,
-                 encoder_concurrency: 8
+                 concurrency: 8
                )
 
       # Serial ids are assigned in COPY insertion order, so reading by id must
       # return the positions in their original input order.
       positions = Repo.all(from(s in "serial_items", select: s.position, order_by: s.id))
-      assert positions == Enum.to_list(1..500)
-    end
-
-    test "ordered: false still copies every row" do
-      rows = Enum.map(1..500, fn i -> %{position: i} end)
-
-      assert :ok =
-               Blink.copy_to_table(rows, "serial_items", Repo,
-                 strategy: :single_connection,
-                 batch_size: 25,
-                 encoder_concurrency: 8,
-                 ordered: false
-               )
-
-      positions = Repo.all(from(s in "serial_items", select: s.position)) |> Enum.sort()
       assert positions == Enum.to_list(1..500)
     end
 
@@ -89,7 +91,7 @@ defmodule Blink.SingleConnectionTest do
       ]
 
       assert_raise Postgrex.Error, fn ->
-        Blink.copy_to_table(rows, "users", Repo, strategy: :single_connection)
+        Blink.copy_to_table(rows, "users", Repo, atomic: true)
       end
 
       assert Repo.all(from(u in "users", select: count())) == [0]
@@ -99,31 +101,49 @@ defmodule Blink.SingleConnectionTest do
       rows = [%{id: 1, name: {:not, :encodable}, email: "alice@example.com"}]
 
       assert_raise RuntimeError, ~r/COPY encode failed/, fn ->
-        Blink.copy_to_table(rows, "users", Repo, strategy: :single_connection)
+        Blink.copy_to_table(rows, "users", Repo, atomic: true)
       end
 
       assert Repo.all(from(u in "users", select: count())) == [0]
     end
+  end
 
-    test "raises for an invalid strategy" do
-      assert_raise ArgumentError, ~r/invalid :strategy/, fn ->
+  describe "option validation" do
+    test "raises on unknown options" do
+      assert_raise ArgumentError, ~r/atomik/, fn ->
         Blink.copy_to_table([%{id: 1, name: "A", email: "a@example.com"}], "users", Repo,
-          strategy: :bogus
+          atomik: true
         )
+      end
+    end
+
+    test "raises on invalid option values" do
+      rows = [%{id: 1, name: "A", email: "a@example.com"}]
+
+      assert_raise ArgumentError, ~r/invalid value/, fn ->
+        Blink.copy_to_table(rows, "users", Repo, atomic: :yes)
+      end
+
+      assert_raise ArgumentError, ~r/invalid value/, fn ->
+        Blink.copy_to_table(rows, "users", Repo, concurrency: 0)
+      end
+
+      assert_raise ArgumentError, ~r/invalid value/, fn ->
+        Blink.copy_to_table(rows, "users", Repo, timeout: -1)
       end
     end
   end
 
-  describe "run/3 with strategy: :single_connection" do
+  describe "run/3 with atomic: true" do
     test "rolls back all tables when a later table fails" do
-      defmodule SingleConnSeeder do
+      defmodule AtomicSeeder do
         use Blink
 
         def call do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo, strategy: :single_connection)
+          |> run(Repo, atomic: true)
         end
 
         def table(_seeder, "users") do
@@ -138,11 +158,11 @@ defmodule Blink.SingleConnectionTest do
       end
 
       on_exit(fn ->
-        :code.delete(SingleConnSeeder)
-        :code.purge(SingleConnSeeder)
+        :code.delete(AtomicSeeder)
+        :code.purge(AtomicSeeder)
       end)
 
-      assert_raise Postgrex.Error, fn -> SingleConnSeeder.call() end
+      assert_raise Postgrex.Error, fn -> AtomicSeeder.call() end
 
       assert Repo.all(from(u in "users", select: count())) == [0]
       assert Repo.all(from(p in "posts", select: count())) == [0]

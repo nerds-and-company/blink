@@ -25,8 +25,14 @@ defmodule Blink.PutHelpersTest do
 
   describe "put_table/3 and put_table/4" do
     test "put_table/4 forwards per-table options to with_table" do
-      seeder = Blink.put_table(Seeder.new(), "users", [], batch_size: 500, max_concurrency: 2)
-      assert %{"users" => [batch_size: 500, max_concurrency: 2]} = seeder.table_opts
+      seeder = Blink.put_table(Seeder.new(), "users", [], batch_size: 500, concurrency: 2)
+      assert Enum.sort(seeder.table_opts["users"]) == [batch_size: 500, concurrency: 2]
+    end
+
+    test "put_table/4 rejects options that are not per-table tuning options" do
+      assert_raise ArgumentError, fn ->
+        Blink.put_table(Seeder.new(), "users", [], atomic: true)
+      end
     end
 
     test "stores the rows and appends to table_order without a table/2 callback" do

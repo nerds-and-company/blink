@@ -27,7 +27,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -57,7 +57,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -94,7 +94,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users"), do: []
@@ -114,7 +114,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -142,7 +142,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_context("users")
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def context(_seeder, "users") do
@@ -168,7 +168,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -195,7 +195,9 @@ defmodule BlinkIntegrationTest do
   end
 
   describe "atomicity" do
-    test "rolls back all tables when a later table fails (max_concurrency: 1)" do
+    # The all-or-nothing counterpart (atomic: true) is covered in
+    # Blink.AtomicTest.
+    test "without atomic: true, earlier tables stay committed when a later table fails" do
       defmodule Dummy do
         use Blink
 
@@ -203,7 +205,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -212,14 +214,14 @@ defmodule BlinkIntegrationTest do
 
         def table(_seeder, "posts") do
           # user_id 999 has no matching user, so the posts COPY fails after the
-          # users COPY has already run within the same surrounding transaction.
+          # users COPY has already committed.
           [%{id: 1, title: "Post", body: "Body", user_id: 999}]
         end
       end
 
       assert_raise Postgrex.Error, fn -> Dummy.call() end
 
-      assert Repo.all(from(u in "users", select: count())) == [0]
+      assert Repo.all(from(u in "users", select: count())) == [1]
       assert Repo.all(from(p in "posts", select: count())) == [0]
     end
   end
@@ -232,7 +234,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -263,7 +265,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -315,7 +317,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -338,7 +340,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -376,7 +378,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -413,7 +415,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -457,7 +459,7 @@ defmodule BlinkIntegrationTest do
 
       # batch_size 50 forces multiple batches; interleaved maps catch a cache
       # that returns the wrong memoized value.
-      assert :ok = Blink.copy_to_table(rows, "users", Repo, max_concurrency: 1, batch_size: 50)
+      assert :ok = Blink.copy_to_table(rows, "users", Repo, concurrency: 1, batch_size: 50)
 
       stored = Repo.all(from(u in "users", select: {u.id, u.settings}, order_by: u.id))
 
@@ -477,7 +479,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("array_records")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "array_records") do
@@ -520,7 +522,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("array_records")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "array_records") do
@@ -567,7 +569,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -595,7 +597,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -623,7 +625,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -651,7 +653,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -679,7 +681,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -707,7 +709,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -735,7 +737,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -764,7 +766,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -792,7 +794,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -820,7 +822,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, max_concurrency: 1)
+          |> run(Repo, concurrency: 1)
         end
 
         def table(_seeder, "users") do
@@ -855,8 +857,8 @@ defmodule BlinkIntegrationTest do
 
         def call do
           new()
-          |> with_table("users", batch_size: 500, max_concurrency: 1)
-          |> run(Repo, batch_size: 10_000, max_concurrency: 8)
+          |> with_table("users", batch_size: 500, concurrency: 1)
+          |> run(Repo, batch_size: 10_000, concurrency: 8)
         end
 
         def table(_seeder, "users"), do: [%{id: 1, name: "Alice", email: "alice@example.com"}]
@@ -864,7 +866,7 @@ defmodule BlinkIntegrationTest do
 
       Dummy.call()
 
-      assert_received {[:blink, :copy, :start], ^ref, %{}, %{batch_size: 500, max_concurrency: 1}}
+      assert_received {[:blink, :copy, :start], ^ref, %{}, %{batch_size: 500, concurrency: 1}}
     end
 
     test "global options are used when no per-table options specified" do
@@ -876,7 +878,7 @@ defmodule BlinkIntegrationTest do
         def call do
           new()
           |> with_table("users")
-          |> run(Repo, batch_size: 5_000, max_concurrency: 1)
+          |> run(Repo, batch_size: 5_000, concurrency: 1)
         end
 
         def table(_seeder, "users"), do: [%{id: 1, name: "Alice", email: "alice@example.com"}]
@@ -884,8 +886,7 @@ defmodule BlinkIntegrationTest do
 
       Dummy.call()
 
-      assert_received {[:blink, :copy, :start], ^ref, %{},
-                       %{batch_size: 5_000, max_concurrency: 1}}
+      assert_received {[:blink, :copy, :start], ^ref, %{}, %{batch_size: 5_000, concurrency: 1}}
     end
   end
 
@@ -897,7 +898,7 @@ defmodule BlinkIntegrationTest do
         end)
 
       assert :ok =
-               Blink.copy_to_table(items, "users", Repo, batch_size: 10, max_concurrency: 1)
+               Blink.copy_to_table(items, "users", Repo, batch_size: 10, concurrency: 1)
 
       users = Repo.all(from(u in "users", select: count()))
       assert users == [100]
@@ -910,7 +911,7 @@ defmodule BlinkIntegrationTest do
         end)
 
       assert :ok =
-               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+               Blink.copy_to_table(items, "users", Repo, concurrency: 1)
 
       users = Repo.all(from(u in "users", select: count()))
       assert users == [50]
@@ -923,7 +924,7 @@ defmodule BlinkIntegrationTest do
       ]
 
       assert :ok =
-               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+               Blink.copy_to_table(items, "users", Repo, concurrency: 1)
 
       users = Repo.all(from(u in "users", select: {u.id, u.name}, order_by: u.id))
 
@@ -937,7 +938,7 @@ defmodule BlinkIntegrationTest do
       items = Stream.map([], fn x -> x end)
 
       assert :ok =
-               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+               Blink.copy_to_table(items, "users", Repo, concurrency: 1)
 
       users = Repo.all(from(u in "users", select: count()))
       assert users == [0]
@@ -951,7 +952,7 @@ defmodule BlinkIntegrationTest do
       ]
 
       assert :ok =
-               Blink.copy_to_table(items, "users", Repo, max_concurrency: 1)
+               Blink.copy_to_table(items, "users", Repo, concurrency: 1)
 
       users = Repo.all(from(u in "users", select: {u.id, u.name, u.email}, order_by: u.id))
 
