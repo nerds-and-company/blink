@@ -224,7 +224,7 @@ defmodule Blink.Adapter.Postgres do
     do: maybe_escape(Jason.encode!(value), escape_cp)
 
   defp encode_value(value, escape_cp) when is_list(value),
-    do: maybe_escape(encode_array(value), escape_cp)
+    do: maybe_escape(IO.iodata_to_binary(encode_array(value)), escape_cp)
 
   defp encode_value(value, escape_cp), do: maybe_escape(to_string(value), escape_cp)
 
@@ -238,7 +238,8 @@ defmodule Blink.Adapter.Postgres do
   # The encoder never sees column types, so a list always becomes an array literal;
   # a JSONB column holding a top-level JSON array must be passed as a pre-encoded
   # JSON string instead.
-  defp encode_array(list), do: "{" <> Enum.map_join(list, ",", &encode_array_element/1) <> "}"
+  defp encode_array(list),
+    do: [?{, Enum.map_intersperse(list, ?,, &encode_array_element/1), ?}]
 
   defp encode_array_element(nil), do: "NULL"
   defp encode_array_element(value) when is_integer(value), do: Integer.to_string(value)
@@ -251,6 +252,6 @@ defmodule Blink.Adapter.Postgres do
 
   defp quote_element(string) do
     escaped = string |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
-    "\"" <> escaped <> "\""
+    [?", escaped, ?"]
   end
 end
