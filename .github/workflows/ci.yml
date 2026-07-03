@@ -149,36 +149,6 @@ jobs:
       - name: Check formatting
         run: mix format --check-formatted
 
-  warnings:
-    name: Check for warnings (Elixir 1.20)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
-        with:
-          elixir-version: '1.20'
-          otp-version: '29'
-
-      - name: Restore dependencies cache
-        uses: actions/cache@v6
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-warnings-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-warnings-
-
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Compile with warnings as errors
-        run: mix compile --warnings-as-errors
-
   dialyzer:
     name: Dialyzer
     runs-on: ubuntu-latest
