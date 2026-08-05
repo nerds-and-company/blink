@@ -34,6 +34,20 @@ defmodule Blink.AdapterTest do
                Blink.copy_to_table([], "users", TestRepo, adapter: Blink.AdapterTest.ValidAdapter)
     end
 
+    test "normalizes an atom table name to a string before calling the adapter" do
+      defmodule NameRecordingAdapter do
+        @behaviour Blink.Adapter
+
+        @impl true
+        def call(_rows, table_name, _repo, _opts), do: {:ok, table_name}
+      end
+
+      assert {:ok, "users"} =
+               Blink.copy_to_table([], :users, TestRepo,
+                 adapter: Blink.AdapterTest.NameRecordingAdapter
+               )
+    end
+
     # Adapters own their option vocabulary, so options Blink does not know
     # about must reach the adapter untouched — global, per-table, and merged.
     test "forwards adapter-specific options untouched through run/3" do

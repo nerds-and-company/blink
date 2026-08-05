@@ -23,6 +23,14 @@ defmodule Blink.JSONTest do
              ] = result
     end
 
+    test "raises on unknown options" do
+      path = Path.join(@fixtures_path, "users.json")
+
+      assert_raise ArgumentError, ~r/transfrom/, fn ->
+        Blink.from_json(path, transfrom: & &1)
+      end
+    end
+
     test "returns an empty list for empty JSON array" do
       path = Path.join(@fixtures_path, "empty.json")
 

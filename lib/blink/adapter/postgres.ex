@@ -63,7 +63,10 @@ defmodule Blink.Adapter.Postgres do
       * `:atomic` - Whether the copy is all-or-nothing (default: `false`).
         * `false` - Workers copy batches over up to `:concurrency` database
           connections in parallel and each batch commits independently.
-          Fastest, but a failure can leave earlier batches committed.
+          Fastest, but a failure can leave earlier batches committed. The
+          worker connections do not enroll in a transaction of the caller's
+          own: they cannot see its uncommitted data, and their commits
+          survive its rollback.
         * `true` - All batches are copied over one connection inside a single
           transaction while `:concurrency` workers encode rows in parallel.
           Any failure rolls back the whole COPY, and the copy enrolls in a
@@ -118,6 +121,12 @@ defmodule Blink.Adapter.Postgres do
   lists are encoded as PostgreSQL array literals for array columns (`int[]`,
   `text[]`, `jsonb[]`, nested arrays, ...). A JSONB column holding a top-level
   JSON array should be passed as a pre-encoded JSON string.
+
+  Structs are maps, so a struct value (a `DateTime`, `Date`, `Decimal`, ...) is
+  also JSON-encoded. PostgreSQL's date/time parsers accept the quoted result,
+  so calendar structs work in `timestamp`, `date`, and `time` columns; in a
+  `text` column the stored value keeps the JSON quotes — pass
+  `to_string(value)` instead.
   """
   @impl true
   @spec call(
@@ -275,20 +284,24 @@ defmodule Blink.Adapter.Postgres do
 
     repo.transaction(
       fn ->
-        set_statement_timeout(repo, timeout)
+        previous_timeout = put_statement_timeout(repo, timeout)
 
-        batches
-        |> Task.async_stream(
-          fn batch -> encode_batch(batch, columns, escape_cp) end,
-          max_concurrency: concurrency,
-          timeout: :infinity
-        )
-        |> Stream.map(fn
-          {:ok, {:ok, iodata}} -> iodata
-          {:ok, {:error, error}} -> raise "COPY encode failed: #{Exception.message(error)}"
-          {:exit, reason} -> raise "COPY encode failed: #{inspect(reason)}"
-        end)
-        |> Enum.into(copy_stream(context))
+        result =
+          batches
+          |> Task.async_stream(
+            fn batch -> encode_batch(batch, columns, escape_cp) end,
+            max_concurrency: concurrency,
+            timeout: :infinity
+          )
+          |> Stream.map(fn
+            {:ok, {:ok, iodata}} -> iodata
+            {:ok, {:error, error}} -> raise "COPY encode failed: #{Exception.message(error)}"
+            {:exit, reason} -> raise "COPY encode failed: #{inspect(reason)}"
+          end)
+          |> Enum.into(copy_stream(context))
+
+        restore_statement_timeout(repo, previous_timeout)
+        result
       end,
       timeout: :infinity
     )
@@ -296,11 +309,24 @@ defmodule Blink.Adapter.Postgres do
 
   # SET LOCAL is scoped to the enclosing transaction, so this gives each COPY a
   # server-side timeout — the only per-operation mechanism available inside a
-  # single transaction. :infinity leaves any server-configured value in place.
-  defp set_statement_timeout(_repo, :infinity), do: :ok
+  # single transaction. That transaction may belong to the caller (an atomic
+  # `run/3`, or a transaction of the application's own), so the previous value
+  # is restored after the COPY rather than left applied to the rest of it. If
+  # the COPY raises, the transaction is aborted and the SET LOCAL dies with it.
+  # :infinity leaves any server-configured value in place.
+  defp put_statement_timeout(_repo, :infinity), do: nil
 
-  defp set_statement_timeout(repo, timeout) when is_integer(timeout) do
+  defp put_statement_timeout(repo, timeout) when is_integer(timeout) do
+    %{rows: [[previous]]} = repo.query!("SHOW statement_timeout")
     repo.query!("SET LOCAL statement_timeout = #{timeout}")
+    previous
+  end
+
+  defp restore_statement_timeout(_repo, nil), do: :ok
+
+  # `previous` comes from SHOW above, never from user input.
+  defp restore_statement_timeout(repo, previous) when is_binary(previous) do
+    repo.query!("SET LOCAL statement_timeout = '#{previous}'")
   end
 
   defp copy_stream(%{repo: repo, table_name: table_name, columns_string: columns_string}) do

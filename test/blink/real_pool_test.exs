@@ -52,6 +52,22 @@ defmodule Blink.RealPoolTest do
     assert count("posts") == 0
   end
 
+  test "restores the caller's statement_timeout after an atomic copy" do
+    {:ok, {prior, current}} =
+      PoolRepo.transaction(fn ->
+        prior = PoolRepo.query!("SHOW statement_timeout").rows
+
+        :ok =
+          Blink.copy_to_table([%{id: 1, name: "A", email: "a@x"}], "users", PoolRepo,
+            atomic: true
+          )
+
+        {prior, PoolRepo.query!("SHOW statement_timeout").rows}
+      end)
+
+    assert current == prior
+  end
+
   defp failing_seeder do
     Blink.Seeder.new()
     |> Blink.Seeder.with_table("users", fn _, _ ->

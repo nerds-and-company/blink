@@ -454,9 +454,11 @@ defmodule Blink do
   ## Parameters
 
     * `path` - Path to the CSV file (relative or absolute)
-    * `opts` - Keyword list of options:
-      * `:headers` - List of header names to use, or `:infer` to read from the
-        first row (default: `:infer`)
+    * `opts` - Keyword list of options. Unknown options raise `ArgumentError`:
+      * `:headers` - `:infer` to read the header names from the first row
+        (default), or a list of names for a file **without** a header row.
+        Explicit headers do not skip the first row — on a file that has one,
+        the header row comes back as a data map.
       * `:transform` - Function to transform each row map (default: identity)
       * `:stream` - When `true`, returns a stream instead of a list (default:
         `false`)
@@ -466,8 +468,8 @@ defmodule Blink do
       # Read CSV with headers in first row
       from_csv("users.csv")
 
-      # Provide headers explicitly
-      from_csv("users.csv", headers: ["id", "name", "email"])
+      # Name the columns of a file that has no header row
+      from_csv("users_no_headers.csv", headers: ["id", "name", "email"])
 
       # Transform values
       from_csv("users.csv", transform: fn row ->
@@ -501,7 +503,7 @@ defmodule Blink do
   ## Parameters
 
     * `path` - Path to the JSON file
-    * `opts` - Keyword list of options:
+    * `opts` - Keyword list of options. Unknown options raise `ArgumentError`:
       * `:transform` - Function to transform each row map (default: identity)
 
   ## Examples

@@ -5,6 +5,7 @@ defmodule Blink.CSV do
 
   @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t()
   def from_csv(path, opts \\ []) do
+    opts = Keyword.validate!(opts, [:headers, :transform, :stream])
     validate_opts!(opts)
 
     stream? = Keyword.get(opts, :stream, false)

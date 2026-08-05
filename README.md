@@ -73,7 +73,7 @@ See the [getting started guide](https://hexdocs.pm/blink/getting_started.html) a
 ## Requirements
 
 - Elixir 1.15+
-- Ecto 3.0+
+- Ecto 3.12+
 - PostgreSQL
 
 ## License
