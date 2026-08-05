@@ -172,12 +172,12 @@ defmodule Blink.Seeder do
   forwarded to the adapter, which owns and validates its option vocabulary —
   unknown keys and invalid values raise `ArgumentError`.
 
-    * `:atomic` - Whether the seed is all-or-nothing (default: `false`). When
+    * `:atomic` - Whether the seed is all-or-nothing (default: `true`). When
       `true`, every table is copied over a single database connection inside
-      one transaction: if any table fails, all tables are rolled back. When
-      `false`, batches are copied over parallel connections for maximum speed,
-      and a failure partway through can leave earlier batches and tables
-      committed.
+      one transaction: if any table fails, all tables are rolled back. Set it
+      to `false` to copy batches over parallel connections for maximum speed,
+      accepting that a failure partway through can leave earlier batches and
+      tables committed.
     * `:timeout` - The time in milliseconds allowed for each database
       operation (default: 15,000). Set to `:infinity` to disable it. See
       `Blink.Adapter.Postgres` for the exact semantics in each mode.
@@ -196,18 +196,19 @@ defmodule Blink.Seeder do
 
   ## Atomicity
 
-  Seeds are fast by default and atomic on request: pass `atomic: true` for
-  all-or-nothing seeding. A failed atomic seed leaves nothing behind, so
-  fixing the data and re-running is always safe. A failed non-atomic seed
-  raises with earlier batches and tables still committed — the failure is
-  never hidden — so inspect what was written and clean up before re-running.
-  `:atomic` and `:timeout` apply to the whole run and cannot be overridden
-  per-table.
+  Seeds are all-or-nothing by default. A failed seed leaves nothing behind, so
+  fixing the data and re-running is always safe. Pass `atomic: false` to trade
+  that for speed: batches then commit independently over parallel connections,
+  and a failure raises with earlier batches and tables still committed — the
+  failure is never hidden, but you must inspect what was written and clean up
+  before re-running. `:atomic` and `:timeout` apply to the whole run and cannot
+  be overridden per-table.
 
   The same distinction applies inside a transaction of your own: an atomic
   seed enrolls in it, while a non-atomic seed copies over separate connections
   that cannot see the transaction's uncommitted data and whose commits survive
-  its rollback. Seed inside your own transaction only with `atomic: true`.
+  its rollback. Never pass `atomic: false` to a seed running inside your own
+  transaction.
 
   ## Returns
 
@@ -229,7 +230,7 @@ defmodule Blink.Seeder do
   """
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
-    atomic = Keyword.get(opts, :atomic, false)
+    atomic = Keyword.get(opts, :atomic, true)
 
     copy_tables = fn ->
       Enum.each(seeder.table_order, fn table_name ->

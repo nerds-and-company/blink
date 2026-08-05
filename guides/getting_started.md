@@ -98,7 +98,7 @@ The seeder above does the following:
 
 Each `table/2` callback receives a Seeder struct. The `tables` field stores data from previously declared tables, allowing the `"posts"` callback to reference `seeder.tables["users"]`.
 
-Once `run/2` is called, data is inserted in the order tables were declared. The `context` field is covered below.
+Once `run/2` is called, data is inserted in the order tables were declared. The whole seed runs in one transaction, so if any table fails nothing is inserted and you can fix the data and re-run. See [Configuring Options](configuring_options.html) for how to trade that for speed on very large seeds. The `context` field is covered below.
 
 Let's run it from IEx:
 

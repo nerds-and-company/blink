@@ -66,9 +66,12 @@ defmodule Blink.AdapterTest do
         |> Blink.Seeder.with_table("users", fn _, _ -> [] end)
         |> Blink.Seeder.with_table("posts", fn _, _ -> [] end, compression: :lz4)
 
+      # atomic: false so run/3 does not open a transaction on TestRepo, which is
+      # a bare name here rather than a real repo.
       assert :ok =
                Blink.Seeder.run(seeder, TestRepo,
                  adapter: Blink.AdapterTest.RecordingAdapter,
+                 atomic: false,
                  notify: self(),
                  compression: :zstd
                )
