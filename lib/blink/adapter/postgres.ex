@@ -121,6 +121,12 @@ defmodule Blink.Adapter.Postgres do
   lists are encoded as PostgreSQL array literals for array columns (`int[]`,
   `text[]`, `jsonb[]`, nested arrays, ...). A JSONB column holding a top-level
   JSON array should be passed as a pre-encoded JSON string.
+
+  Structs are maps, so a struct value (a `DateTime`, `Date`, `Decimal`, ...) is
+  also JSON-encoded. PostgreSQL's date/time parsers accept the quoted result,
+  so calendar structs work in `timestamp`, `date`, and `time` columns; in a
+  `text` column the stored value keeps the JSON quotes — pass
+  `to_string(value)` instead.
   """
   @impl true
   @spec call(
