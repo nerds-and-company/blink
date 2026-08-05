@@ -204,6 +204,11 @@ defmodule Blink.Seeder do
   `:atomic` and `:timeout` apply to the whole run and cannot be overridden
   per-table.
 
+  The same distinction applies inside a transaction of your own: an atomic
+  seed enrolls in it, while a non-atomic seed copies over separate connections
+  that cannot see the transaction's uncommitted data and whose commits survive
+  its rollback. Seed inside your own transaction only with `atomic: true`.
+
   ## Returns
 
     * `:ok` - When all tables have been seeded successfully

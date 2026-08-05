@@ -63,7 +63,10 @@ defmodule Blink.Adapter.Postgres do
       * `:atomic` - Whether the copy is all-or-nothing (default: `false`).
         * `false` - Workers copy batches over up to `:concurrency` database
           connections in parallel and each batch commits independently.
-          Fastest, but a failure can leave earlier batches committed.
+          Fastest, but a failure can leave earlier batches committed. The
+          worker connections do not enroll in a transaction of the caller's
+          own: they cannot see its uncommitted data, and their commits
+          survive its rollback.
         * `true` - All batches are copied over one connection inside a single
           transaction while `:concurrency` workers encode rows in parallel.
           Any failure rolls back the whole COPY, and the copy enrolls in a
