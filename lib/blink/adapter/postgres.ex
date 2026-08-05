@@ -383,14 +383,13 @@ defmodule Blink.Adapter.Postgres do
     end
   end
 
+  # Maps never reach the /2 clauses: the memoizing /3 clause above intercepts
+  # them, so a /2 map clause would be dead code (Elixir 1.20 proves it).
   defp encode_value(value, escape_cp, cache), do: {encode_value(value, escape_cp), cache}
 
   defp encode_value(nil, _escape_cp), do: "\\N"
   defp encode_value(value, _escape_cp) when is_integer(value), do: Integer.to_string(value)
   defp encode_value(value, escape_cp) when is_binary(value), do: maybe_escape(value, escape_cp)
-
-  defp encode_value(value, escape_cp) when is_map(value),
-    do: maybe_escape(Jason.encode!(value), escape_cp)
 
   defp encode_value(value, escape_cp) when is_list(value),
     do: maybe_escape(IO.iodata_to_binary(encode_array(value)), escape_cp)
