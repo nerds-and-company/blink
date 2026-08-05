@@ -29,8 +29,8 @@ defmodule Blink.PutHelpersTest do
       assert Enum.sort(seeder.table_opts["users"]) == [batch_size: 500, concurrency: 2]
     end
 
-    test "put_table/4 rejects options that are not per-table tuning options" do
-      assert_raise ArgumentError, fn ->
+    test "put_table/4 rejects run-level options per-table" do
+      assert_raise ArgumentError, ~r/cannot be set per-table/, fn ->
         Blink.put_table(Seeder.new(), "users", [], atomic: true)
       end
     end

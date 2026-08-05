@@ -20,10 +20,13 @@ defmodule Blink.Seeder do
 
   @type key :: binary() | atom()
 
-  @type table_opts :: [
-          {:batch_size, pos_integer()}
-          | {:concurrency, pos_integer()}
-        ]
+  @type table_opts :: Keyword.t()
+
+  # Options that configure the whole run rather than one table's copy. Allowing
+  # them per-table would let a single table silently break a run-level
+  # guarantee — e.g. a per-table `atomic: false` inside an atomic seed would
+  # copy that table over parallel connections outside the run's transaction.
+  @reserved_table_opts [:adapter, :atomic, :timeout]
 
   @type t :: %__MODULE__{
           tables: %{optional(key()) => Enumerable.t()},
@@ -67,9 +70,13 @@ defmodule Blink.Seeder do
 
   ## Options
 
-  Only the per-table tuning options are accepted here; anything else (e.g.
-  `:atomic`, `:timeout`) applies to the whole run and must be passed to `run/3`.
-  Unknown options raise `ArgumentError`.
+  Options given here override the ones passed to `run/3` for this table only.
+  They are forwarded to the adapter, which owns and validates them — unknown
+  keys and invalid values raise `ArgumentError` when the seeder runs. The
+  run-level options `:adapter`, `:atomic`, and `:timeout` configure the whole
+  run and raise `ArgumentError` here.
+
+  For `Blink.Adapter.Postgres` the per-table options are:
 
     * `:batch_size` - Number of rows per batch. Overrides `:batch_size` in
       `run/3`.
@@ -94,7 +101,7 @@ defmodule Blink.Seeder do
   def with_table(%__MODULE__{} = seeder, table_name, builder, opts \\ [])
       when is_key(table_name) and is_function(builder, 2) do
     raise_if_key_exists(seeder, table_name, :tables)
-    opts = Keyword.validate!(opts, [:batch_size, :concurrency])
+    reject_reserved_opts!(opts)
 
     seeder
     |> put_in([:tables, table_name], builder.(seeder, table_name))
@@ -135,6 +142,18 @@ defmodule Blink.Seeder do
     end
   end
 
+  defp reject_reserved_opts!(opts) do
+    case Enum.filter(@reserved_table_opts, &Keyword.has_key?(opts, &1)) do
+      [] ->
+        :ok
+
+      reserved ->
+        raise ArgumentError,
+              "#{inspect(reserved)} cannot be set per-table; " <>
+                "pass run-level options to `run/3` instead"
+    end
+  end
+
   defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
   defp key_to_string(key) when is_binary(key), do: key
 
@@ -149,7 +168,10 @@ defmodule Blink.Seeder do
 
   ## Options
 
-  Unknown options raise `ArgumentError`.
+  `:adapter` selects the adapter and `:atomic` additionally tells the seeder
+  whether to open a transaction; every option is forwarded to the adapter,
+  which owns and validates its option vocabulary — unknown keys and invalid
+  values raise `ArgumentError`.
 
     * `:atomic` - Whether the seed is all-or-nothing (default: `false`). When
       `true`, every table is copied over a single database connection inside
@@ -199,7 +221,7 @@ defmodule Blink.Seeder do
   """
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
-    opts = Keyword.validate!(opts, [:adapter, :batch_size, :concurrency, :timeout, atomic: false])
+    atomic = Keyword.get(opts, :atomic, false)
 
     copy_tables = fn ->
       Enum.each(seeder.table_order, fn table_name ->
@@ -211,7 +233,7 @@ defmodule Blink.Seeder do
       end)
     end
 
-    if Keyword.fetch!(opts, :atomic) do
+    if atomic do
       # The checkout timeout is :infinity because this connection is held for
       # the whole seed; each database operation is bounded by :timeout instead
       # (see Blink.Adapter.Postgres).

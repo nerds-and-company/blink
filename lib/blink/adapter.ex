@@ -40,6 +40,15 @@ defmodule Blink.Adapter do
       option vocabulary and should validate it, raising `ArgumentError` on
       unknown keys or invalid values (`Keyword.validate!/2` covers the former).
 
+  `Blink.Seeder.run/3` forwards its options here, including `:atomic`. With
+  `atomic: true` it opens a transaction on the calling process's connection and
+  relies on the adapter to perform the whole copy in the calling process, so
+  that the copy enrolls in the transaction. An adapter that hands batches to
+  other processes — each checking out its own connection — silently voids that
+  all-or-nothing guarantee. Support `:atomic` only by copying in the calling
+  process; otherwise reject the option, so a failed seed cannot pass for
+  rolled back when parts of it committed.
+
   ## Returns
 
     * `:ok` - When the copy operation succeeds

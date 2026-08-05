@@ -211,8 +211,9 @@ defmodule Blink do
       for `table_name`.
 
       The clause receives the seeder built so far, so it can read tables and
-      context declared before it. `opts` accepts the per-table `:batch_size` and
-      `:max_concurrency` options, which override the ones given to `run/3`.
+      context declared before it. `opts` takes per-table options (for
+      `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), which
+      override the ones given to `run/3`.
 
       Raises `Blink.MissingClauseError` when no `table/2` clause matches
       `table_name`.
@@ -371,9 +372,10 @@ defmodule Blink do
 
   A convenience wrapper over `Blink.Seeder.with_table/4` for when the rows are
   already available and you do not want to define a `table/2` callback. `rows`
-  may be a list or a stream. `opts` (`:batch_size`, `:concurrency`) are
-  forwarded to `Blink.Seeder.with_table/4`. Raises `ArgumentError` if
-  `table_name` is already present.
+  may be a list or a stream. `opts` takes per-table options (for
+  `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), forwarded to
+  `Blink.Seeder.with_table/4`. Raises `ArgumentError` if `table_name` is
+  already present.
 
   ## Examples
 

@@ -36,7 +36,7 @@ The following options are specific to `Blink.Adapter.Postgres`:
 
 ## Per-table options
 
-Per-table options override global options for specific tables. Only the tuning options `:batch_size` and `:concurrency` can be set per table — `:atomic` and `:timeout` apply to the whole run. Pass them as the last argument to `with_table/3`:
+Per-table options override global options for specific tables. The run-level options `:atomic` and `:timeout` apply to the whole run and raise `ArgumentError` when set per table; the tuning options `:batch_size` and `:concurrency` can be set freely. Pass them as the last argument to `with_table/3`:
 
 ```elixir
 def call do
