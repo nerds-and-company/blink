@@ -1,9 +1,6 @@
 # Changelog
 
-## [Unreleased]
-
-Planned as a minor release (0.8.0), not a 0.7.x patch: it redesigns the
-options API (breaking) and changes default timeout behavior.
+## [0.8.0] - 2026-08-05
 
 ### Added
 - `Blink.MissingClauseError`, raised when a table or context is declared with no matching callback clause. The message names the key and shows the clause to add.
@@ -137,6 +134,7 @@ options API (breaking) and changes default timeout behavior.
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.8.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.7.0
 [0.6.3]: https://github.com/nerds-and-company/blink/releases/tag/v0.6.3
 [0.6.2]: https://github.com/nerds-and-company/blink/releases/tag/v0.6.2
