@@ -170,7 +170,7 @@ defmodule Blink.Seeder do
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
     timeout = Keyword.get(opts, :timeout, 15_000)
 
-    repo.transact(
+    repo.transaction(
       fn ->
         Enum.each(seeder.table_order, fn table_name ->
           items = Map.fetch!(seeder.tables, table_name)
@@ -179,8 +179,6 @@ defmodule Blink.Seeder do
 
           Blink.copy_to_table(items, key_to_string(table_name), repo, merged_opts)
         end)
-
-        {:ok, :inserted}
       end,
       timeout: timeout
     )

@@ -113,6 +113,70 @@ jobs:
       - name: Run tests
         run: mix test
 
+  test-minimum-deps:
+    name: Test (minimum Ecto versions)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: blink_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      MIX_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.17'
+          otp-version: '26'
+
+      # Resolving normally always picks the newest Ecto, so the declared floor
+      # goes untested — that is how v0.6.3 shipped a call to Ecto.Repo.transact/2
+      # under an `ecto_sql ~> 3.0` requirement. Pin both packages to the exact
+      # minimum instead. The greps fail loudly if the requirements in mix.exs
+      # move without this job being updated to match.
+      - name: Pin Ecto to the minimum supported versions
+        run: |
+          set -euo pipefail
+          grep -q '{:ecto, "~> 3.12"}' mix.exs
+          grep -q '{:ecto_sql, "~> 3.12"}' mix.exs
+          sed -i 's/{:ecto, "~> 3.12"}/{:ecto, "== 3.12.0"}/' mix.exs
+          sed -i 's/{:ecto_sql, "~> 3.12"}/{:ecto_sql, "== 3.12.0"}/' mix.exs
+          rm -f mix.lock
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Verify the minimum versions resolved
+        run: |
+          set -euo pipefail
+          grep -q '"ecto".*"3\.12\.0"' mix.lock
+          grep -q '"ecto_sql".*"3\.12\.0"' mix.lock
+
+      - name: Compile dependencies
+        run: mix deps.compile
+
+      - name: Compile project
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        run: mix test
+
   format:
     name: Check formatting
     runs-on: ubuntu-latest
