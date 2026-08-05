@@ -31,6 +31,45 @@ defmodule Blink do
   3. Define `table/2` clauses that return the rows to insert.
   4. Run `run/2` or `run/3` to bulk-insert the rows.
 
+  ## The seeder API
+
+  `use Blink` defines these functions on your module. They are the primary API,
+  but they do not appear in this module's function list below, because they are
+  defined on *your* module rather than on `Blink`:
+
+    * `with_table(seeder, table_name)` and `with_table(seeder, table_name, opts)` —
+      declare a table; the rows come from your `table/2` clause for that name.
+    * `with_context(seeder, key)` — declare a context key; the value comes from
+      your `context/2` clause for that key.
+
+  `use Blink` also imports `new/0` and, from this module, `put_table/2,3,4`,
+  `put_context/2,3`, `copy_to_table/3,4`, `from_csv/1,2` and `from_json/1,2`, so
+  you call all of them unqualified.
+
+  ### Choosing between with_* and put_*
+
+  Reach for `with_table/2` and `with_context/2` by default. Because the callback
+  runs when the table is declared, it receives the seeder built so far and can
+  read earlier tables and context off it — that is what makes the pipeline
+  declarative and lets `"posts"` derive from `"users"`.
+
+  Use `put_table/3` and `put_context/3` only when the data is already in hand at
+  the call site and no callback is needed:
+
+      # Callback form: rows are computed per table, in declaration order
+      new()
+      |> with_table("users")
+      |> with_table("posts")
+      |> run(MyApp.Repo)
+
+      # Direct form: rows already exist
+      new()
+      |> put_table("users", users)
+      |> run(MyApp.Repo)
+
+  The two forms compose freely — a later `table/2` clause reads rows that
+  `put_table/3` added earlier.
+
   ## Seeders
 
   Seeders are the central data unit in Blink. A `Seeder` is a struct that holds
@@ -140,24 +179,44 @@ defmodule Blink do
         ]
 
       @doc """
-      Loads a table into the seeder using the module's `table/2` callback.
+      Declares a table, building its rows with this module's `table/2` clause
+      for `table_name`.
 
-      See `Blink.Seeder.with_table/4` for more information.
+      The clause receives the seeder built so far, so it can read tables and
+      context declared before it. `opts` accepts the per-table `:batch_size` and
+      `:max_concurrency` options, which override the ones given to `run/3`.
+
+      Raises `Blink.MissingClauseError` when no `table/2` clause matches
+      `table_name`.
+
+          new()
+          |> with_table("users")
+          |> with_table("posts", batch_size: 1_000)
+          |> run(MyApp.Repo)
       """
       @spec with_table(seeder :: Seeder.t(), table_name :: Seeder.key(), opts :: Keyword.t()) ::
               Seeder.t()
       def with_table(%Seeder{} = seeder, table_name, opts \\ []) when is_key(table_name) do
-        Seeder.with_table(seeder, table_name, &table/2, opts)
+        Blink.__with_table__(seeder, table_name, &table/2, opts, __MODULE__)
       end
 
       @doc """
-      Loads context into the seeder using the module's `context/2` callback.
+      Declares a context key, building its value with this module's `context/2`
+      clause for `key`.
 
-      See `Blink.Seeder.with_context/3` for more information.
+      Context is available to later clauses via `seeder.context` and is never
+      inserted into the database.
+
+      Raises `Blink.MissingClauseError` when no `context/2` clause matches `key`.
+
+          new()
+          |> with_context("timestamps")
+          |> with_table("users")
+          |> run(MyApp.Repo)
       """
       @spec with_context(seeder :: Seeder.t(), key :: Seeder.key()) :: Seeder.t()
       def with_context(%Seeder{} = seeder, key) when is_key(key) do
-        Seeder.with_context(seeder, key, &context/2)
+        Blink.__with_context__(seeder, key, &context/2, __MODULE__)
       end
 
       @impl true
@@ -169,14 +228,18 @@ defmodule Blink do
 
       @impl true
       def table(%Seeder{}, table_name) do
-        raise ArgumentError,
-              "you must define table/2 clauses that correspond with your calls to with_table/2"
+        raise Blink.MissingClauseError,
+          module: __MODULE__,
+          callback: :table,
+          key: table_name
       end
 
       @impl true
       def context(%Seeder{}, key) do
-        raise ArgumentError,
-              "you must define context/2 clauses that correspond with your calls to with_context/2"
+        raise Blink.MissingClauseError,
+          module: __MODULE__,
+          callback: :context,
+          key: key
       end
 
       @impl true
@@ -184,6 +247,44 @@ defmodule Blink do
       defdelegate run(seeder, repo, opts \\ []), to: Seeder
 
       defoverridable Blink
+    end
+  end
+
+  @doc false
+  def __with_table__(seeder, table_name, builder, opts, module) do
+    Seeder.with_table(seeder, table_name, builder, opts)
+  rescue
+    error in FunctionClauseError ->
+      reraise_missing_clause(error, module, :table, table_name, __STACKTRACE__)
+  end
+
+  @doc false
+  def __with_context__(seeder, key, builder, module) do
+    Seeder.with_context(seeder, key, builder)
+  rescue
+    error in FunctionClauseError ->
+      reraise_missing_clause(error, module, :context, key, __STACKTRACE__)
+  end
+
+  # A user-defined `table/2` replaces the fallback injected by `__using__`
+  # (that is what `defoverridable` means), so a declared-but-unhandled table
+  # surfaces as a bare FunctionClauseError rather than the fallback's raise.
+  # Only the seeder module's own callback is translated; anything raised from
+  # within a clause body propagates untouched.
+  @spec reraise_missing_clause(
+          error :: Exception.t(),
+          module :: module(),
+          callback :: :table | :context,
+          key :: Seeder.key(),
+          stacktrace :: Exception.stacktrace()
+        ) :: no_return()
+  defp reraise_missing_clause(error, module, callback, key, stacktrace) do
+    if error.module == module and error.function == callback and error.arity == 2 do
+      reraise Blink.MissingClauseError,
+              [module: module, callback: callback, key: key],
+              stacktrace
+    else
+      reraise error, stacktrace
     end
   end
 

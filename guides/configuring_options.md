@@ -1,6 +1,6 @@
 # Configuring Options
 
-Blink provides options to control how data is inserted into your database. Options can be set globally when calling `run/3`, or per-table when declaring tables with `with_table/4`.
+Blink provides options to control how data is inserted into your database. Options can be set globally when calling `run/3`, or per-table when declaring tables with `with_table/3`.
 
 ## Global options
 
@@ -34,7 +34,7 @@ The following options are specific to `Blink.Adapter.Postgres`:
 
 ## Per-table options
 
-Per-table options override global options for specific tables. Pass them as the fourth argument to `with_table/4`:
+Per-table options override global options for specific tables. Pass them as the last argument to `with_table/3`:
 
 ```elixir
 def call do
@@ -74,5 +74,5 @@ Blink.copy_to_table(users, "users", Blog.Repo,
 In this guide, we learned how to:
 
 - Set global options with `run/3`
-- Override options per-table with `with_table/4`
+- Override options per-table with `with_table/3`
 - Use options with `copy_to_table/4`

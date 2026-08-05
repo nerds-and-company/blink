@@ -12,11 +12,15 @@ In this guide, we will:
 
 ## When to use put_* vs with_*
 
-Use `with_table/2` and `with_context/2` when data is computed inside callbacks —
-for example, when a table depends on rows declared earlier. Reach for
-`put_table` and `put_context` when the data is already available at the call
-site, with no callback needed. Both helpers are imported by `use Blink`, so you
-call them unqualified.
+`with_table/2` and `with_context/2` are the default. Their callbacks run when
+the table or key is declared, so they receive the seeder built so far and can
+derive rows from earlier tables and context — that is what keeps the pipeline
+declarative.
+
+Reach for `put_table` and `put_context` in the narrower case where the data is
+already available at the call site and no callback is needed — typically when
+the rows were passed into the seeder from outside. Both helpers are imported by
+`use Blink`, so you call them unqualified.
 
 ## Adding context with put_context
 
@@ -67,7 +71,7 @@ new()
 
 For per-table options — or a large table you want to stream — use `put_table/4`.
 It accepts the same per-table `:batch_size` and `:max_concurrency` options as
-`with_table/4`, and per-table values override the ones passed to `run/3`. The
+`with_table/3`, and per-table values override the ones passed to `run/3`. The
 keyword form cannot carry options:
 
 ```elixir

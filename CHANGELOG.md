@@ -2,11 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+- `Blink.MissingClauseError`, raised when a table or context is declared with no matching callback clause. The message names the key and shows the clause to add.
+
 ### Changed
 - Lowered the `ecto_sql` requirement from `~> 3.13` to `~> 3.12`, so Blink no longer forces applications onto Ecto 3.13. `Blink.Seeder.run/3` now calls `Ecto.Repo.transaction/2` instead of `Ecto.Repo.transact/2`, which was the only Ecto 3.13 API in the library. Behaviour is unchanged: `run/3` discards the transaction body's return value and still returns `:ok`, and a failed copy still rolls the transaction back by raising.
 - Added an explicit `ecto ~> 3.12` requirement. Blink calls `Ecto.Repo` callbacks directly, but previously depended on `ecto` only through `ecto_sql`, which left the real floor unstated — and unpinnable, since `ecto_sql 3.12` permits Ecto 3.13 and newer. CI now resolves both packages at their exact minimum and runs the suite against them, so the declared floor is tested rather than asserted.
+- A `with_table/2` or `with_context/2` call whose callback clause is missing now raises `Blink.MissingClauseError` instead of a bare `FunctionClauseError`. Previously only the degenerate case — a module defining no `table/2` or `context/2` clauses at all — produced a helpful error, because a user-defined clause replaces the fallback injected by `use Blink`.
+- The missing-clause fallback injected by `use Blink` raises `Blink.MissingClauseError` instead of `ArgumentError`. `Blink.MissingClauseError` is not an `ArgumentError`, so code that rescues `ArgumentError` around seeder construction to catch a missing clause must rescue `Blink.MissingClauseError` instead. Duplicate table names and keys still raise `ArgumentError`.
 
 ### Documentation
+- Raised the `ex_doc` requirement to `~> 0.40`, which generates an `llms.txt` and per-module Markdown alongside the HTML docs. `ex_doc` is a dev-only dependency, so this does not affect dependency resolution for applications using Blink.
+- Documented the functions `use Blink` defines on your module — `with_table/2,3` and `with_context/2` — in the `Blink` moduledoc. They are defined on the calling module, so ExDoc never listed them, leaving `Blink.Seeder.with_table/4` as the only `with_table` in the API reference.
+- Added guidance on choosing between the callback-based `with_*` functions and the direct `put_*` helpers, and marked `Blink.Seeder.with_table/4` and `Blink.Seeder.with_context/3` as the low-level forms.
+- Corrected references to `with_table/4` in the Configuring Options and Providing Data Directly guides; the function that takes per-table options on a module using `use Blink` is `with_table/3`.
+- Updated the Getting Started installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
 - Updated the README installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
 
 ## [0.7.0] - 2026-07-03
