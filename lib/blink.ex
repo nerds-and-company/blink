@@ -454,7 +454,7 @@ defmodule Blink do
   ## Parameters
 
     * `path` - Path to the CSV file (relative or absolute)
-    * `opts` - Keyword list of options:
+    * `opts` - Keyword list of options. Unknown options raise `ArgumentError`:
       * `:headers` - `:infer` to read the header names from the first row
         (default), or a list of names for a file **without** a header row.
         Explicit headers do not skip the first row — on a file that has one,
@@ -503,7 +503,7 @@ defmodule Blink do
   ## Parameters
 
     * `path` - Path to the JSON file
-    * `opts` - Keyword list of options:
+    * `opts` - Keyword list of options. Unknown options raise `ArgumentError`:
       * `:transform` - Function to transform each row map (default: identity)
 
   ## Examples

@@ -62,6 +62,15 @@ defmodule Blink.CSVTest do
       end
     end
 
+    test "raises on unknown options" do
+      path = Path.join(@fixtures_path, "users.csv")
+
+      # A typo'd :stream would otherwise silently load the whole file.
+      assert_raise ArgumentError, ~r/streem/, fn ->
+        Blink.from_csv(path, streem: true)
+      end
+    end
+
     test "raises when transform is not a function" do
       path = Path.join(@fixtures_path, "users.csv")
 

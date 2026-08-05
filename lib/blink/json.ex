@@ -3,16 +3,17 @@ defmodule Blink.JSON do
 
   @spec from_json(path :: String.t(), opts :: Keyword.t()) :: [map()]
   def from_json(path, opts) do
-    raw_items =
-      path
-      |> File.read!()
-      |> Jason.decode!()
+    opts = Keyword.validate!(opts, [:transform])
+    transform = Keyword.get(opts, :transform, & &1)
 
-    parse_json_items(raw_items, Keyword.get(opts, :transform, & &1))
-  end
+    unless is_function(transform, 1) do
+      raise ArgumentError, ":transform option must be a function that takes 1 argument"
+    end
 
-  defp parse_json_items(_, transform) when not is_function(transform, 1) do
-    raise ArgumentError, ":transform option must be a function that takes 1 argument"
+    path
+    |> File.read!()
+    |> Jason.decode!()
+    |> parse_json_items(transform)
   end
 
   defp parse_json_items(items, transform) when is_list(items) do
