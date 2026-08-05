@@ -211,8 +211,9 @@ defmodule Blink do
       for `table_name`.
 
       The clause receives the seeder built so far, so it can read tables and
-      context declared before it. `opts` accepts the per-table `:batch_size` and
-      `:max_concurrency` options, which override the ones given to `run/3`.
+      context declared before it. `opts` takes per-table options (for
+      `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), which
+      override the ones given to `run/3`.
 
       Raises `Blink.MissingClauseError` when no `table/2` clause matches
       `table_name`.
@@ -371,9 +372,10 @@ defmodule Blink do
 
   A convenience wrapper over `Blink.Seeder.with_table/4` for when the rows are
   already available and you do not want to define a `table/2` callback. `rows`
-  may be a list or a stream. `opts` (e.g. `:batch_size`, `:max_concurrency`) are
-  forwarded to `Blink.Seeder.with_table/4`. Raises `ArgumentError` if
-  `table_name` is already present.
+  may be a list or a stream. `opts` takes per-table options (for
+  `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), forwarded to
+  `Blink.Seeder.with_table/4`. Raises `ArgumentError` if `table_name` is
+  already present.
 
   ## Examples
 
@@ -406,12 +408,10 @@ defmodule Blink do
       * `:adapter` - The adapter module to use. Defaults to
         `Blink.Adapter.Postgres`.
 
-      The following options are specific to `Blink.Adapter.Postgres`:
-
-      * `:batch_size` - Number of rows per batch (default: 8,000).
-      * `:max_concurrency` - Number of parallel COPY operations (default: 6).
-      * `:timeout` - Timeout in milliseconds for each batch operation (default:
-        `:infinity`).
+      All other options are adapter-specific and validated by the adapter —
+      unknown keys raise `ArgumentError`. See `Blink.Adapter.Postgres` for its
+      options: `:atomic` (all-or-nothing copy), `:concurrency`, `:batch_size`,
+      and `:timeout`.
 
   ## Returns
 
@@ -483,8 +483,11 @@ defmodule Blink do
 
   ## Notes
 
-  For JSONB columns, use `:transform` to parse JSON strings into maps. The
-  Postgres adapter will automatically JSON-encode maps when inserting.
+  For JSONB columns, prefer leaving the value as the raw JSON string read from
+  the CSV. Since CSV values are already strings, an untransformed JSONB column is
+  inserted directly, skipping a JSON round trip. Only decode it into a map (via
+  `:transform`) when you need to inspect or modify the value before inserting —
+  the Postgres adapter will re-encode maps with `Jason.encode!/1` on the way in.
   """
   @spec from_csv(path :: String.t(), opts :: Keyword.t()) :: Enumerable.t()
   defdelegate from_csv(path, opts \\ []), to: Blink.CSV

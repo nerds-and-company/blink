@@ -1,6 +1,6 @@
 # Configuring Options
 
-Blink provides options to control how data is inserted into your database. Options can be set globally when calling `run/3`, or per-table when declaring tables with `with_table/3`.
+Blink provides options to control how data is inserted into your database. Options can be set globally when calling `run/3`, or per-table when declaring tables with `with_table/3`. Unknown options and invalid values raise an `ArgumentError`, so a typo fails loudly instead of being silently ignored.
 
 ## Global options
 
@@ -14,7 +14,7 @@ defmodule Blog.Seeder do
     new()
     |> with_table("users")
     |> with_table("posts")
-    |> run(Blog.Repo, batch_size: 5_000, max_concurrency: 4)
+    |> run(Blog.Repo, atomic: true, batch_size: 5_000)
   end
 
   def table(_seeder, "users"), do: # ...
@@ -24,30 +24,32 @@ end
 
 ### Available options
 
-- `:timeout` - The time in milliseconds to wait for the transaction to complete (default: 15,000). Set to `:infinity` to disable the timeout.
+- `:atomic` - Whether the seed is all-or-nothing (default: `false`). By default Blink copies batches over parallel database connections for maximum speed, and each batch commits independently — a failure partway through raises, with earlier batches and tables left committed for you to inspect and clean up. With `atomic: true` the whole seed runs over a single connection inside one transaction (rows are still encoded in parallel across cores): if any table fails, every table is rolled back, so fixing the data and re-running is always safe.
+
+- `:timeout` - The time in milliseconds allowed for each database operation (default: 15,000). Set to `:infinity` to disable the timeout.
 
 The following options are specific to `Blink.Adapter.Postgres`:
 
 - `:batch_size` - Number of rows per batch (default: 8,000). Rows are grouped into batches before being sent to the database.
 
-- `:max_concurrency` - Maximum number of parallel database connections for COPY operations (default: 6). Set to 1 for sequential execution.
+- `:concurrency` - Number of parallel workers. Without `atomic: true` each worker copies batches over its own database connection (default: 6), so configure your repo's `pool_size` to at least `:concurrency`. With `atomic: true` the workers encode rows in parallel while a single connection copies (default: the number of cores).
 
 ## Per-table options
 
-Per-table options override global options for specific tables. Pass them as the last argument to `with_table/3`:
+Per-table options override global options for specific tables. The run-level options `:atomic` and `:timeout` apply to the whole run and raise `ArgumentError` when set per table; the tuning options `:batch_size` and `:concurrency` can be set freely. Pass them as the last argument to `with_table/3`:
 
 ```elixir
 def call do
   new()
   |> with_table("users", batch_size: 1_000)
-  |> with_table("posts", max_concurrency: 2)
-  |> run(Blog.Repo, batch_size: 5_000, max_concurrency: 4)
+  |> with_table("posts", concurrency: 2)
+  |> run(Blog.Repo, batch_size: 5_000, concurrency: 4)
 end
 ```
 
 In this example:
-- `users` uses `batch_size: 1_000` and `max_concurrency: 4` (from global)
-- `posts` uses `batch_size: 5_000` (from global) and `max_concurrency: 2`
+- `users` uses `batch_size: 1_000` and `concurrency: 4` (from global)
+- `posts` uses `batch_size: 5_000` (from global) and `concurrency: 2`
 
 ### When to use per-table options
 
@@ -65,14 +67,17 @@ users = [
 
 Blink.copy_to_table(users, "users", Blog.Repo,
   batch_size: 1_000,
-  max_concurrency: 2
+  concurrency: 2
 )
 ```
+
+`copy_to_table/4` accepts the same options as `run/3`, including `atomic: true` for an all-or-nothing copy of a single table.
 
 ## Summary
 
 In this guide, we learned how to:
 
 - Set global options with `run/3`
-- Override options per-table with `with_table/3`
+- Make a seed all-or-nothing with `atomic: true`
+- Override tuning options per-table with `with_table/3`
 - Use options with `copy_to_table/4`

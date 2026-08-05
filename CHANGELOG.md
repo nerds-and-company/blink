@@ -2,16 +2,31 @@
 
 ## [Unreleased]
 
+Planned as a minor release (0.8.0), not a 0.7.x patch: it redesigns the
+options API (breaking) and changes default timeout behavior.
+
 ### Added
 - `Blink.MissingClauseError`, raised when a table or context is declared with no matching callback clause. The message names the key and shows the clause to add.
+- Added an `:atomic` option (default: `false`) to `Blink.Seeder.run/3`, `Blink.copy_to_table/4`, and `Blink.Adapter.Postgres`. With `atomic: true` the whole seed (or copy) runs over a single database connection inside one transaction — any failure rolls everything back — while rows are encoded in parallel across cores (tunable via `:concurrency`). Input row order is always preserved. A failed atomic seed leaves nothing behind, which makes re-running it after a fix safe.
 
 ### Changed
+- **Breaking:** Redesigned the copy options around two orthogonal knobs: `:atomic` (all-or-nothing or not) and `:concurrency` (number of parallel workers — COPY connections when `atomic: false`, row encoders when `atomic: true`). `:max_concurrency` is renamed to `:concurrency`.
+- **Breaking:** Atomicity is now controlled exclusively by `atomic: true`. `Blink.Seeder.run/3` no longer wraps seeds in an outer transaction unless `atomic: true`, so `concurrency: 1` (previously `max_concurrency: 1`) no longer makes a seed atomic as a side effect; every non-atomic batch commits independently. The removed transaction was not protecting parallel seeds to begin with: each COPY ran on its own connection outside it, so at `max_concurrency > 1` (the default) a failure already left completed batches committed despite the apparent rollback. This also removes the `pool_size >= max_concurrency + 1` requirement — `pool_size >= concurrency` suffices.
+- **Breaking:** Options are no longer silently ignored. Adapters own and validate their option vocabulary, so unknown keys and invalid values raise `ArgumentError` whether they enter through `run/3`, `copy_to_table/4`, or per-table options. The run-level options `:adapter`, `:atomic`, and `:timeout` raise `ArgumentError` when passed per-table via `with_table/3,4` or `put_table/4`, because a per-table override could silently void a run-level guarantee such as atomicity.
+- **Breaking:** `:timeout` now has one meaning — the time allowed for each database operation — and one default (15,000 ms) everywhere, including direct `copy_to_table/4` calls (previously `:infinity`). With `atomic: false` it bounds each batch's COPY transaction; with `atomic: true` it is enforced server-side via `SET LOCAL statement_timeout`, since a checkout deadline cannot bound individual operations inside one transaction. Row encoding is no longer subject to it.
+- **Breaking:** `[:blink, :copy, :start]` telemetry metadata now reports `:concurrency` and `:atomic` instead of `:max_concurrency`.
+- Encoding now memoizes the JSON encoding of repeated map (JSONB) values within a batch. Seeds that reuse the same JSONB value across many rows encode dramatically faster (14–127× on the encode step in benchmarks); unique-per-row maps are unaffected (large maps) or ~9% slower (small maps).
 - Lowered the `ecto_sql` requirement from `~> 3.13` to `~> 3.12`, so Blink no longer forces applications onto Ecto 3.13. `Blink.Seeder.run/3` now calls `Ecto.Repo.transaction/2` instead of `Ecto.Repo.transact/2`, which was the only Ecto 3.13 API in the library. Behaviour is unchanged: `run/3` discards the transaction body's return value and still returns `:ok`, and a failed copy still rolls the transaction back by raising.
 - Added an explicit `ecto ~> 3.12` requirement. Blink calls `Ecto.Repo` callbacks directly, but previously depended on `ecto` only through `ecto_sql`, which left the real floor unstated — and unpinnable, since `ecto_sql 3.12` permits Ecto 3.13 and newer. CI now resolves both packages at their exact minimum and runs the suite against them, so the declared floor is tested rather than asserted.
 - A `with_table/2` or `with_context/2` call whose callback clause is missing now raises `Blink.MissingClauseError` instead of a bare `FunctionClauseError`. Previously only the degenerate case — a module defining no `table/2` or `context/2` clauses at all — produced a helpful error, because a user-defined clause replaces the fallback injected by `use Blink`.
 - The missing-clause fallback injected by `use Blink` raises `Blink.MissingClauseError` instead of `ArgumentError`. `Blink.MissingClauseError` is not an `ArgumentError`, so code that rescues `ArgumentError` around seeder construction to catch a missing clause must rescue `Blink.MissingClauseError` instead. Duplicate table names and keys still raise `ArgumentError`.
 
+### Fixed
+- A failed COPY on the parallel path now raises in the calling process with its original stacktrace. Previously the linked task's death took the caller down with an exit signal, so the documented exception could not be rescued and an insertion failure could go unhandled. Every COPY path also raises on an unexpected `{:error, _}` result from a batch; the sequential path previously swallowed it and kept copying.
+
 ### Documentation
+- Documented the atomicity model (`atomic: true`) in `Blink.Seeder.run/3` and rewrote the "Configuring Options" guide for the new options API.
+- Recommended passing pre-encoded JSON strings for JSONB columns to avoid a `Jason.decode!`/`Jason.encode!` round trip.
 - Documented that primary keys are chosen by you rather than generated by the database, so a table can reference IDs from an earlier table before anything is inserted. Every example already relied on this, but no guide stated it, leaving it to be inferred against the usual `Ecto.Repo.insert/2` flow where an ID only exists after insertion.
 - Documented that explicit IDs do not advance a `serial`, `bigserial`, or identity sequence, and gave the `setval` query to run after seeding. Without it the seed succeeds and the application's next ordinary insert fails with a unique constraint violation.
 - Raised the `ex_doc` requirement to `~> 0.40`, which generates an `llms.txt` and per-module Markdown alongside the HTML docs. `ex_doc` is a dev-only dependency, so this does not affect dependency resolution for applications using Blink.

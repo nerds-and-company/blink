@@ -9,7 +9,7 @@ defmodule Blink.Seeder do
 
     * `:tables` — data that will be inserted into the database.
     * `:table_order` - the insertion order for tables.
-    * `:table_opts` — per-table options (`:batch_size`, `:max_concurrency`) used
+    * `:table_opts` — per-table options (`:batch_size`, `:concurrency`) used
       during the copy operation.
     * `:context` — auxiliary data used while building the seeder, not inserted.
   """
@@ -20,10 +20,13 @@ defmodule Blink.Seeder do
 
   @type key :: binary() | atom()
 
-  @type table_opts :: [
-          {:batch_size, pos_integer()}
-          | {:max_concurrency, pos_integer()}
-        ]
+  @type table_opts :: Keyword.t()
+
+  # Options that configure the whole run rather than one table's copy. Allowing
+  # them per-table would let a single table silently break a run-level
+  # guarantee — e.g. a per-table `atomic: false` inside an atomic seed would
+  # copy that table over parallel connections outside the run's transaction.
+  @reserved_table_opts [:adapter, :atomic, :timeout]
 
   @type t :: %__MODULE__{
           tables: %{optional(key()) => Enumerable.t()},
@@ -67,12 +70,18 @@ defmodule Blink.Seeder do
 
   ## Options
 
-  The following options are specific to `Blink.Adapter.Postgres`:
+  Options given here override the ones passed to `run/3` for this table only.
+  They are forwarded to the adapter, which owns and validates them — unknown
+  keys and invalid values raise `ArgumentError` when the seeder runs. The
+  run-level options `:adapter`, `:atomic`, and `:timeout` configure the whole
+  run and raise `ArgumentError` here.
+
+  For `Blink.Adapter.Postgres` the per-table options are:
 
     * `:batch_size` - Number of rows per batch. Overrides `:batch_size` in
       `run/3`.
-    * `:max_concurrency` - Number of maximum parallel database connections.
-      Overrides `:max_concurrency` in `run/3`.
+    * `:concurrency` - Number of parallel workers. Overrides `:concurrency` in
+      `run/3`.
 
   ## Examples
 
@@ -80,18 +89,19 @@ defmodule Blink.Seeder do
       Seeder.with_table(seeder, "users", &table/2)
 
       # With custom batch size and concurrency
-      Seeder.with_table(seeder, "users", &table/2, batch_size: 1_000, max_concurrency: 2)
+      Seeder.with_table(seeder, "users", &table/2, batch_size: 1_000, concurrency: 2)
 
   """
   @spec with_table(
           seeder :: t(),
           table_name :: key(),
           builder :: (seeder :: t(), table_name :: key() -> Enumerable.t()),
-          opts :: Keyword.t()
+          opts :: table_opts()
         ) :: t()
   def with_table(%__MODULE__{} = seeder, table_name, builder, opts \\ [])
       when is_key(table_name) and is_function(builder, 2) do
     raise_if_key_exists(seeder, table_name, :tables)
+    reject_reserved_opts!(opts)
 
     seeder
     |> put_in([:tables, table_name], builder.(seeder, table_name))
@@ -132,6 +142,18 @@ defmodule Blink.Seeder do
     end
   end
 
+  defp reject_reserved_opts!(opts) do
+    case Enum.filter(@reserved_table_opts, &Keyword.has_key?(opts, &1)) do
+      [] ->
+        :ok
+
+      reserved ->
+        raise ArgumentError,
+              "#{inspect(reserved)} cannot be set per-table; " <>
+                "pass run-level options to `run/3` instead"
+    end
+  end
+
   defp key_to_string(key) when is_atom(key), do: Atom.to_string(key)
   defp key_to_string(key) when is_binary(key), do: key
 
@@ -146,17 +168,41 @@ defmodule Blink.Seeder do
 
   ## Options
 
-    * `:timeout` - The time in milliseconds to wait for the transaction to
-      complete. Defaults to 15,000 (15 seconds). Set to `:infinity` to disable
-      the timeout.
+  `:adapter` selects the adapter; everything else, including `:atomic`, is
+  forwarded to the adapter, which owns and validates its option vocabulary —
+  unknown keys and invalid values raise `ArgumentError`.
+
+    * `:atomic` - Whether the seed is all-or-nothing (default: `false`). When
+      `true`, every table is copied over a single database connection inside
+      one transaction: if any table fails, all tables are rolled back. When
+      `false`, batches are copied over parallel connections for maximum speed,
+      and a failure partway through can leave earlier batches and tables
+      committed.
+    * `:timeout` - The time in milliseconds allowed for each database
+      operation (default: 15,000). Set to `:infinity` to disable it. See
+      `Blink.Adapter.Postgres` for the exact semantics in each mode.
+    * `:adapter` - The adapter module to use (default:
+      `Blink.Adapter.Postgres`).
 
   The following options are specific to `Blink.Adapter.Postgres`:
 
-    * `:batch_size` - Number of rows per batch (default: 8,000).
-      Can be overridden per-table via `with_table/4`.
-    * `:max_concurrency` - Maximum number of parallel database connections for
-      COPY operations (default: 6). Set to 1 for sequential execution. Can be
+    * `:batch_size` - Number of rows per batch (default: 8,000). Can be
       overridden per-table via `with_table/4`.
+    * `:concurrency` - Number of parallel workers: COPY connections when
+      `atomic: false` (configure the repo's `pool_size` accordingly), row
+      encoders feeding the single connection when `atomic: true`. See
+      `Blink.Adapter.Postgres` for defaults. Can be overridden per-table via
+      `with_table/4`.
+
+  ## Atomicity
+
+  Seeds are fast by default and atomic on request: pass `atomic: true` for
+  all-or-nothing seeding. A failed atomic seed leaves nothing behind, so
+  fixing the data and re-running is always safe. A failed non-atomic seed
+  raises with earlier batches and tables still committed — the failure is
+  never hidden — so inspect what was written and clean up before re-running.
+  `:atomic` and `:timeout` apply to the whole run and cannot be overridden
+  per-table.
 
   ## Returns
 
@@ -166,32 +212,38 @@ defmodule Blink.Seeder do
 
   ## Examples
 
+      # All-or-nothing seeding
+      run(seeder, MyApp.Repo, atomic: true)
+
       # With custom timeout
       run(seeder, MyApp.Repo, timeout: 60_000)
 
-      # Disable timeout entirely
-      run(seeder, MyApp.Repo, timeout: :infinity)
-
       # With custom batch size and concurrency
-      run(seeder, MyApp.Repo, batch_size: 5_000, max_concurrency: 4)
+      run(seeder, MyApp.Repo, batch_size: 5_000, concurrency: 4)
 
   """
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
-    timeout = Keyword.get(opts, :timeout, 15_000)
+    atomic = Keyword.get(opts, :atomic, false)
 
-    repo.transaction(
-      fn ->
-        Enum.each(seeder.table_order, fn table_name ->
-          items = Map.fetch!(seeder.tables, table_name)
-          table_opts = Map.fetch!(seeder.table_opts, table_name)
-          merged_opts = Keyword.merge(opts, table_opts)
+    copy_tables = fn ->
+      Enum.each(seeder.table_order, fn table_name ->
+        items = Map.fetch!(seeder.tables, table_name)
+        table_opts = Map.fetch!(seeder.table_opts, table_name)
+        merged_opts = Keyword.merge(opts, table_opts)
 
-          Blink.copy_to_table(items, key_to_string(table_name), repo, merged_opts)
-        end)
-      end,
-      timeout: timeout
-    )
+        Blink.copy_to_table(items, key_to_string(table_name), repo, merged_opts)
+      end)
+    end
+
+    if atomic do
+      # The checkout timeout is :infinity because this connection is held for
+      # the whole seed; each database operation is bounded by :timeout instead
+      # (see Blink.Adapter.Postgres).
+      repo.transaction(copy_tables, timeout: :infinity)
+    else
+      copy_tables.()
+    end
 
     :ok
   end

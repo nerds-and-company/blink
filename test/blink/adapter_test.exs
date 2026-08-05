@@ -33,5 +33,38 @@ defmodule Blink.AdapterTest do
       assert {:ok, :test_result} =
                Blink.copy_to_table([], "users", TestRepo, adapter: Blink.AdapterTest.ValidAdapter)
     end
+
+    # Adapters own their option vocabulary, so options Blink does not know
+    # about must reach the adapter untouched — global, per-table, and merged.
+    test "forwards adapter-specific options untouched through run/3" do
+      defmodule RecordingAdapter do
+        @behaviour Blink.Adapter
+
+        @impl true
+        def call(_rows, table_name, _repo, opts) do
+          send(Keyword.fetch!(opts, :notify), {:copied, table_name, opts})
+          :ok
+        end
+      end
+
+      seeder =
+        Blink.Seeder.new()
+        |> Blink.Seeder.with_table("users", fn _, _ -> [] end)
+        |> Blink.Seeder.with_table("posts", fn _, _ -> [] end, compression: :lz4)
+
+      assert :ok =
+               Blink.Seeder.run(seeder, TestRepo,
+                 adapter: Blink.AdapterTest.RecordingAdapter,
+                 notify: self(),
+                 compression: :zstd
+               )
+
+      assert_received {:copied, "users", opts}
+      assert opts[:compression] == :zstd
+      refute Keyword.has_key?(opts, :adapter)
+
+      assert_received {:copied, "posts", opts}
+      assert opts[:compression] == :lz4
+    end
   end
 end

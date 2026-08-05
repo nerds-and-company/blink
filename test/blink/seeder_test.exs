@@ -57,6 +57,14 @@ defmodule Blink.SeederTest do
       end
     end
 
+    test "rejects run-level options per-table" do
+      for opt <- [atomic: true, timeout: 5_000, adapter: Blink.Adapter.Postgres] do
+        assert_raise ArgumentError, ~r/cannot be set per-table/, fn ->
+          Seeder.with_table(Seeder.new(), "users", fn _, _ -> [] end, [opt])
+        end
+      end
+    end
+
     test "raises if table name exists as different type (atom vs string)" do
       seeder =
         Seeder.new()

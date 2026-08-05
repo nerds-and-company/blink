@@ -70,7 +70,7 @@ new()
 ```
 
 For per-table options — or a large table you want to stream — use `put_table/4`.
-It accepts the same per-table `:batch_size` and `:max_concurrency` options as
+It accepts the same per-table `:batch_size` and `:concurrency` options as
 `with_table/3`, and per-table values override the ones passed to `run/3`. The
 keyword form cannot carry options:
 
@@ -79,7 +79,7 @@ events = Stream.map(1..1_000_000, fn i -> %{id: i, name: "Event #{i}"} end)
 
 new()
 |> put_table("users", users)
-|> put_table("events", events, batch_size: 1_000, max_concurrency: 2)
+|> put_table("events", events, batch_size: 1_000, concurrency: 2)
 |> run(Blog.Repo)
 ```
 
