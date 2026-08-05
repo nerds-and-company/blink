@@ -168,10 +168,9 @@ defmodule Blink.Seeder do
 
   ## Options
 
-  `:adapter` selects the adapter and `:atomic` additionally tells the seeder
-  whether to open a transaction; every option is forwarded to the adapter,
-  which owns and validates its option vocabulary — unknown keys and invalid
-  values raise `ArgumentError`.
+  `:adapter` selects the adapter; everything else, including `:atomic`, is
+  forwarded to the adapter, which owns and validates its option vocabulary —
+  unknown keys and invalid values raise `ArgumentError`.
 
     * `:atomic` - Whether the seed is all-or-nothing (default: `false`). When
       `true`, every table is copied over a single database connection inside
@@ -198,8 +197,12 @@ defmodule Blink.Seeder do
   ## Atomicity
 
   Seeds are fast by default and atomic on request: pass `atomic: true` for
-  all-or-nothing seeding. `:atomic` and `:timeout` apply to the whole run and
-  cannot be overridden per-table.
+  all-or-nothing seeding. A failed atomic seed leaves nothing behind, so
+  fixing the data and re-running is always safe. A failed non-atomic seed
+  raises with earlier batches and tables still committed — the failure is
+  never hidden — so inspect what was written and clean up before re-running.
+  `:atomic` and `:timeout` apply to the whole run and cannot be overridden
+  per-table.
 
   ## Returns
 

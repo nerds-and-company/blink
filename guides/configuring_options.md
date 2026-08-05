@@ -24,7 +24,7 @@ end
 
 ### Available options
 
-- `:atomic` - Whether the seed is all-or-nothing (default: `false`). By default Blink copies batches over parallel database connections for maximum speed, and each batch commits independently — a failure partway through can leave earlier batches and tables committed. With `atomic: true` the whole seed runs over a single connection inside one transaction (rows are still encoded in parallel across cores): if any table fails, every table is rolled back.
+- `:atomic` - Whether the seed is all-or-nothing (default: `false`). By default Blink copies batches over parallel database connections for maximum speed, and each batch commits independently — a failure partway through raises, with earlier batches and tables left committed for you to inspect and clean up. With `atomic: true` the whole seed runs over a single connection inside one transaction (rows are still encoded in parallel across cores): if any table fails, every table is rolled back, so fixing the data and re-running is always safe.
 
 - `:timeout` - The time in milliseconds allowed for each database operation (default: 15,000). Set to `:infinity` to disable the timeout.
 
