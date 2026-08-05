@@ -38,6 +38,7 @@ options API (breaking) and changes default timeout behavior.
 - Updated the Getting Started installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
 - Updated the README installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
 - Corrected the README requirements from "Ecto 3.0+" to "Ecto 3.12+"; the `~> 3.0` era ended in v0.6.3 but the README was never updated.
+- Documented that `from_csv/2`'s explicit `:headers` option is for files without a header row, and that it does not skip the first row of a file that has one. The doc example previously showed explicit headers on the same headered file used by the other examples, which would return the header row as a data map.
 
 ## [0.7.0] - 2026-07-03
 
