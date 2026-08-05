@@ -37,6 +37,7 @@ options API (breaking) and changes default timeout behavior.
 - Corrected references to `with_table/4` in the Configuring Options and Providing Data Directly guides; the function that takes per-table options on a module using `use Blink` is `with_table/3`.
 - Updated the Getting Started installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
 - Updated the README installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
+- Corrected the README requirements from "Ecto 3.0+" to "Ecto 3.12+"; the `~> 3.0` era ended in v0.6.3 but the README was never updated.
 
 ## [0.7.0] - 2026-07-03
 
