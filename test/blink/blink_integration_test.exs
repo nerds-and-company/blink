@@ -197,7 +197,7 @@ defmodule BlinkIntegrationTest do
   describe "atomicity" do
     # The all-or-nothing counterpart (atomic: true) is covered in
     # Blink.AtomicTest.
-    test "without atomic: true, earlier tables stay committed when a later table fails" do
+    test "with atomic: false, earlier tables stay committed when a later table fails" do
       defmodule Dummy do
         use Blink
 
@@ -205,7 +205,7 @@ defmodule BlinkIntegrationTest do
           new()
           |> with_table("users")
           |> with_table("posts")
-          |> run(Repo, concurrency: 1)
+          |> run(Repo, atomic: false, concurrency: 1)
         end
 
         def table(_seeder, "users") do

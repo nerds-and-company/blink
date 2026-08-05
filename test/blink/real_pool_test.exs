@@ -45,7 +45,7 @@ defmodule Blink.RealPoolTest do
     # The raise itself is part of the regression: in v0.7.0 a failed parallel
     # COPY killed the caller through the task link instead of raising.
     assert_raise Postgrex.Error, fn ->
-      Blink.Seeder.run(failing_seeder(), PoolRepo, batch_size: 20)
+      Blink.Seeder.run(failing_seeder(), PoolRepo, atomic: false, batch_size: 20)
     end
 
     assert count("users") == 100

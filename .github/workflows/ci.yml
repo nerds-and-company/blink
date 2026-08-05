@@ -153,10 +153,10 @@ jobs:
       - name: Pin Ecto to the minimum supported versions
         run: |
           set -euo pipefail
-          grep -q '{:ecto, "~> 3.12"}' mix.exs
-          grep -q '{:ecto_sql, "~> 3.12"}' mix.exs
-          sed -i 's/{:ecto, "~> 3.12"}/{:ecto, "== 3.12.0"}/' mix.exs
-          sed -i 's/{:ecto_sql, "~> 3.12"}/{:ecto_sql, "== 3.12.0"}/' mix.exs
+          grep -q '{:ecto, "~> 3.10"}' mix.exs
+          grep -q '{:ecto_sql, "~> 3.10"}' mix.exs
+          sed -i 's/{:ecto, "~> 3.10"}/{:ecto, "== 3.10.3"}/' mix.exs
+          sed -i 's/{:ecto_sql, "~> 3.10"}/{:ecto_sql, "== 3.10.2"}/' mix.exs
           rm -f mix.lock
 
       - name: Install dependencies
@@ -165,8 +165,8 @@ jobs:
       - name: Verify the minimum versions resolved
         run: |
           set -euo pipefail
-          grep -q '"ecto".*"3\.12\.0"' mix.lock
-          grep -q '"ecto_sql".*"3\.12\.0"' mix.lock
+          grep -q '"ecto".*"3\.10\.3"' mix.lock
+          grep -q '"ecto_sql".*"3\.10\.2"' mix.lock
 
       - name: Compile dependencies
         run: mix deps.compile

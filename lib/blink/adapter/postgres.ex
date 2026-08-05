@@ -60,7 +60,7 @@ defmodule Blink.Adapter.Postgres do
     * `repo` - An Ecto repository module configured with a Postgres adapter.
     * `opts` - Keyword list of options. Unknown keys and invalid values raise
       `ArgumentError`:
-      * `:atomic` - Whether the copy is all-or-nothing (default: `false`).
+      * `:atomic` - Whether the copy is all-or-nothing (default: `true`).
         * `false` - Workers copy batches over up to `:concurrency` database
           connections in parallel and each batch commits independently.
           Fastest, but a failure can leave earlier batches committed. The
@@ -159,7 +159,7 @@ defmodule Blink.Adapter.Postgres do
 
   defp validate_opts!(opts) do
     opts =
-      Keyword.validate!(opts, [:concurrency, batch_size: 8_000, timeout: 15_000, atomic: false])
+      Keyword.validate!(opts, [:concurrency, batch_size: 8_000, timeout: 15_000, atomic: true])
 
     Enum.each(opts, &validate_opt!/1)
     opts

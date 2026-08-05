@@ -61,6 +61,7 @@ MyApp.Seeder.call()
 ## Features
 
 - **Fast bulk inserts** of data into PostgreSQL
+- **All-or-nothing seeding** by default, with an opt-out for maximum speed
 - **Stream support** for memory-efficient seeding
 - **CSV/JSON loading** with built-in helpers
 - **JSONB support** with automatic JSON encoding
@@ -73,7 +74,7 @@ See the [getting started guide](https://hexdocs.pm/blink/getting_started.html) a
 ## Requirements
 
 - Elixir 1.15+
-- Ecto 3.12+
+- Ecto 3.10+
 - PostgreSQL
 
 ## License
