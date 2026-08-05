@@ -70,6 +70,34 @@ defmodule Blink do
   The two forms compose freely — a later `table/2` clause reads rows that
   `put_table/3` added earlier.
 
+  ### Choosing IDs
+
+  You assign primary keys yourself. Blink builds plain maps and hands them to
+  PostgreSQL's `COPY`, so it never asks the database to generate an ID and never
+  reads one back. An ID is just another value in the map you are building, no
+  different from a name or a timestamp — inserting a row is not what gives it
+  one. So a later table can reference rows that have not been inserted yet:
+
+      def table(_seeder, "users") do
+        [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
+      end
+
+      def table(seeder, "posts") do
+        Enum.map(seeder.tables["users"], fn user ->
+          %{id: user.id, title: "Welcome, \#{user.name}", user_id: user.id}
+        end)
+      end
+
+  Foreign keys are satisfied by insertion order, which follows the order tables
+  were declared, so declare parents before children.
+
+  > #### Reset the sequence for serial columns {: .warning}
+  >
+  > Inserting explicit IDs does not advance a `serial`, `bigserial`, or identity
+  > sequence, so the next ordinary insert your application makes can collide with
+  > a seeded row. See
+  > [Getting Started](getting_started.html#choosing-ids) for the reset query.
+
   ## Seeders
 
   Seeders are the central data unit in Blink. A `Seeder` is a struct that holds
