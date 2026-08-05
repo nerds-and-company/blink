@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+- Lowered the `ecto_sql` requirement from `~> 3.13` to `~> 3.12`, so Blink no longer forces applications onto Ecto 3.13. `Blink.Seeder.run/3` now calls `Ecto.Repo.transaction/2` instead of `Ecto.Repo.transact/2`, which was the only Ecto 3.13 API in the library. Behaviour is unchanged: `run/3` discards the transaction body's return value and still returns `:ok`, and a failed copy still rolls the transaction back by raising.
+- Added an explicit `ecto ~> 3.12` requirement. Blink calls `Ecto.Repo` callbacks directly, but previously depended on `ecto` only through `ecto_sql`, which left the real floor unstated — and unpinnable, since `ecto_sql 3.12` permits Ecto 3.13 and newer. CI now resolves both packages at their exact minimum and runs the suite against them, so the declared floor is tested rather than asserted.
+
 ### Documentation
 - Updated the README installation pin to `~> 0.7.0`; it still pointed at the 0.6.x series after v0.7.0 shipped.
 
