@@ -71,6 +71,11 @@ defmodule Blink.Adapter do
   def copy_to_table(rows, table_name, repo, opts \\ []) do
     {adapter, opts} = Keyword.pop(opts, :adapter, Blink.Adapter.Postgres)
 
-    adapter.call(rows, table_name, repo, opts)
+    adapter.call(rows, normalize_table_name(table_name), repo, opts)
   end
+
+  # The `call/4` contract hands adapters a string, so atom names are converted
+  # here — the same normalization `Blink.Seeder.run/3` applies to table keys.
+  defp normalize_table_name(table_name) when is_atom(table_name), do: Atom.to_string(table_name)
+  defp normalize_table_name(table_name) when is_binary(table_name), do: table_name
 end

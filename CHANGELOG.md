@@ -22,6 +22,7 @@ options API (breaking) and changes default timeout behavior.
 - The missing-clause fallback injected by `use Blink` raises `Blink.MissingClauseError` instead of `ArgumentError`. `Blink.MissingClauseError` is not an `ArgumentError`, so code that rescues `ArgumentError` around seeder construction to catch a missing clause must rescue `Blink.MissingClauseError` instead. Duplicate table names and keys still raise `ArgumentError`.
 
 ### Fixed
+- `Blink.copy_to_table/4` now accepts an atom table name, as its documentation always claimed; previously an atom crashed with a `FunctionClauseError` from the adapter. The name is normalized to a string before reaching the adapter, matching what `Blink.Seeder.run/3` does for table keys.
 - A failed COPY on the parallel path now raises in the calling process with its original stacktrace. Previously the linked task's death took the caller down with an exit signal, so the documented exception could not be rescued and an insertion failure could go unhandled. Every COPY path also raises on an unexpected `{:error, _}` result from a batch; the sequential path previously swallowed it and kept copying.
 
 ### Documentation
