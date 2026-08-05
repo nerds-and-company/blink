@@ -140,8 +140,8 @@ defmodule BlinkTest do
   end
 
   describe "table/2 callback" do
-    test "raises ArgumentError when table/2 clause is missing" do
-      defmodule Dummy do
+    test "raises MissingClauseError when no table/2 clause is defined at all" do
+      defmodule NoTableClauses do
         use Blink
 
         def call do
@@ -150,17 +150,61 @@ defmodule BlinkTest do
         end
       end
 
-      assert_raise ArgumentError,
-                   "you must define table/2 clauses that correspond with your calls to with_table/2",
-                   fn ->
-                     Dummy.call()
-                   end
+      assert_raise Blink.MissingClauseError,
+                   ~r/declares "users" with with_table\/2, but no table\/2 clause matches "users"/,
+                   fn -> NoTableClauses.call() end
+    end
+
+    test "raises MissingClauseError when a declared table has no matching clause" do
+      defmodule SomeTableClauses do
+        use Blink
+
+        def call do
+          new()
+          |> with_table("users")
+          |> with_table("posts")
+        end
+
+        def table(_seeder, "users"), do: [%{id: 1}]
+      end
+
+      error = assert_raise Blink.MissingClauseError, fn -> SomeTableClauses.call() end
+
+      message = Exception.message(error)
+      assert message =~ ~s(declares "posts" with with_table/2)
+      assert message =~ ~s{def table(_seeder, "posts") do}
+    end
+
+    test "names atom table names as atoms" do
+      defmodule AtomTableName do
+        use Blink
+
+        def call, do: new() |> with_table(:events)
+      end
+
+      assert_raise Blink.MissingClauseError,
+                   ~r/no table\/2 clause matches :events/,
+                   fn -> AtomTableName.call() end
+    end
+
+    test "does not translate a FunctionClauseError raised inside a clause body" do
+      defmodule RaisesInBody do
+        use Blink
+
+        def call, do: new() |> with_table("users")
+
+        def table(_seeder, "users"), do: pick(:unmatched)
+
+        defp pick(:matched), do: []
+      end
+
+      assert_raise FunctionClauseError, fn -> RaisesInBody.call() end
     end
   end
 
   describe "context/2 callback" do
-    test "raises ArgumentError when context/2 clause is missing" do
-      defmodule Dummy do
+    test "raises MissingClauseError when no context/2 clause is defined at all" do
+      defmodule NoContextClauses do
         use Blink
 
         def call do
@@ -169,11 +213,29 @@ defmodule BlinkTest do
         end
       end
 
-      assert_raise ArgumentError,
-                   "you must define context/2 clauses that correspond with your calls to with_context/2",
-                   fn ->
-                     Dummy.call()
-                   end
+      assert_raise Blink.MissingClauseError,
+                   ~r/declares "data" with with_context\/2, but no context\/2 clause matches "data"/,
+                   fn -> NoContextClauses.call() end
+    end
+
+    test "raises MissingClauseError when a declared key has no matching clause" do
+      defmodule SomeContextClauses do
+        use Blink
+
+        def call do
+          new()
+          |> with_context("timestamps")
+          |> with_context("missing")
+        end
+
+        def context(_seeder, "timestamps"), do: [1, 2]
+      end
+
+      error = assert_raise Blink.MissingClauseError, fn -> SomeContextClauses.call() end
+
+      message = Exception.message(error)
+      assert message =~ ~s(declares "missing" with with_context/2)
+      assert message =~ ~s{def context(_seeder, "missing") do}
     end
   end
 end

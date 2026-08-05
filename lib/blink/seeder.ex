@@ -57,6 +57,11 @@ defmodule Blink.Seeder do
   @doc """
   Loads a table into the seeder by calling the provided builder function.
 
+  This is the low-level form, which takes an explicit builder. If your module
+  calls `use Blink`, call `with_table/2` or `with_table/3` on that module
+  instead — it dispatches to your `table/2` clause for you and reports a missing
+  clause as a `Blink.MissingClauseError`. See `Blink` for the full seeder API.
+
   The builder function should take a seeder and table name and return an
   enumerable (list or stream) of maps representing the table data.
 
@@ -96,6 +101,11 @@ defmodule Blink.Seeder do
 
   @doc """
   Loads context into the seeder by calling the provided builder function.
+
+  This is the low-level form, which takes an explicit builder. If your module
+  calls `use Blink`, call `with_context/2` on that module instead — it
+  dispatches to your `context/2` clause for you and reports a missing clause as
+  a `Blink.MissingClauseError`. See `Blink` for the full seeder API.
 
   The builder function should take a seeder and key and return the context data.
   """

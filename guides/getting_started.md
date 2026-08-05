@@ -16,7 +16,7 @@ Add Blink to your dependencies in `mix.exs`:
 ```elixir
 defp deps do
   [
-    {:blink, "~> 0.6.1"}
+    {:blink, "~> 0.7.0"}
   ]
 end
 ```
@@ -93,6 +93,8 @@ The seeder above does the following:
 3. `with_table/2` - Declares the tables to insert rows into
 4. `table/2` - Defines what rows to insert into each table
 5. `run/2` - Executes the bulk insertion
+
+`with_table/2` and `table/2` come as a pair: every table you declare needs a `table/2` clause matching that name. Declaring one without the other raises `Blink.MissingClauseError`, which names the table and shows the clause to add.
 
 Each `table/2` callback receives a Seeder struct. The `tables` field stores data from previously declared tables, allowing the `"posts"` callback to reference `seeder.tables["users"]`.
 
