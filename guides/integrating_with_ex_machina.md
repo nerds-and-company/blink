@@ -77,6 +77,8 @@ end
 
 In this example, ExMachina generates the names and emails, while you control the IDs and timestamps.
 
+Generating the ID with `Ecto.UUID.generate/0` rather than letting the database assign one is what makes the value usable straight away — a later table can reference it before anything is inserted, and a `uuid` primary key has no sequence to reset. See [Choosing IDs](getting_started.html#choosing-ids).
+
 ## Summary
 
 In this guide, we learned how to:

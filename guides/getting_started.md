@@ -108,6 +108,68 @@ iex> Blog.Seeder.call()
 # => Inserts 2 users and 10 posts
 ```
 
+## Choosing IDs
+
+You assign primary keys yourself. Blink builds plain maps and hands them to
+PostgreSQL's `COPY`, so it never asks the database to generate an ID and never
+reads one back.
+
+It is easy to carry over a habit from the usual Ecto flow, where you insert a
+struct without an ID and read the generated one off the result:
+
+```elixir
+# Here the database assigns the ID, so it only exists after the insert
+{:ok, user} = Repo.insert(%User{name: "Alice"})
+Repo.insert(%Post{title: "Hello", user_id: user.id})
+```
+
+That makes it look as though a row must be inserted before it has an ID to
+reference. It does not. An ID is just another value in the map you are
+building, no different from a name or a timestamp; writing it down is what
+gives the row an ID, and inserting only stores what you already wrote. So the
+`"posts"` clause can reference `user.id` for rows that have not been inserted
+yet:
+
+```elixir
+def table(_seeder, "users") do
+  [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]
+end
+
+def table(seeder, "posts") do
+  # Nothing has touched the database yet - these IDs are simply the ones
+  # declared above, and they are the ones that will be inserted.
+  Enum.map(seeder.tables["users"], fn user ->
+    %{id: user.id, title: "Welcome, #{user.name}", user_id: user.id}
+  end)
+end
+```
+
+Any scheme works as long as the values are unique within the table: sequential
+integers, an offset per table, or `Ecto.UUID.generate/0` for `uuid` columns.
+Foreign keys are satisfied by insertion order, which follows the order tables
+were declared, so declare parents before children.
+
+> #### Reset the sequence for serial columns {: .warning}
+>
+> If a primary key column is `serial`, `bigserial`, or an identity column,
+> inserting explicit IDs does **not** advance its sequence. Seeding IDs 1 to
+> 1,000 leaves the sequence at 1, and the next ordinary insert your application
+> makes fails with a unique constraint violation on ID 1.
+>
+> Reset the sequence after seeding:
+>
+> ```elixir
+> Ecto.Adapters.SQL.query!(Blog.Repo, """
+>   SELECT setval(
+>     pg_get_serial_sequence('users', 'id'),
+>     (SELECT COALESCE(MAX(id), 1) FROM users)
+>   )
+> """)
+> ```
+>
+> Tables with `uuid` primary keys, or integer keys you manage yourself, have no
+> sequence and need no reset.
+
 ## Streams
 
 In the example above, the `table/2` clauses returned lists. Since Blink stores the entire Seeder struct in memory, large lists can be problematic.
