@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Documentation
+- Added the [Bulk Imports Outside Seeding](guides/bulk_imports.md) guide. Blink's copy path is a general bulk-insert primitive, but every existing doc assumed an idle, disposable database; this guide covers what changes on a live one — the atomicity trade-off reread for production tables (a fully atomic import is one long transaction; `atomic: false` batch commits need a re-runnable design), the staging-table pattern for upserts (`COPY` has no `ON CONFLICT`; use a real or `UNLOGGED` staging table, since a `TEMPORARY` one is invisible to the parallel copy connections), normalizing rows from sparse external sources, why `reset_sequences` must not run against concurrent inserts, pool sizing so an import cannot starve the application, and observing imports through the copy telemetry events.
+
 ## [0.8.0] - 2026-08-05
 
 ### Added
