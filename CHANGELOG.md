@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Documentation
+- Rewrote the ExMachina guide around the two real pairings: map factories dedicated to seeding (the simple path — the maps are the rows), and struct factories shared with the test suite, which should stay structs and be converted at the seeder boundary. The guide now gives the conversion recipe — `to_row/2` (`Map.from_struct/1` + `Map.take(__schema__(:fields))` with an explicit-vs-database id policy) and `drop_all_nil_columns/1` for schemas that lean on database defaults — instead of pretending the struct case does not exist.
+
 ## [0.8.0] - 2026-08-05
 
 ### Added
