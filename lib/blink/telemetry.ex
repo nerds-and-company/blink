@@ -56,6 +56,8 @@ defmodule Blink.Telemetry do
       * Metadata: `:table_name`, `:batch_size`, `:concurrency`, `:timeout`,
         `:atomic`
     * `[:blink, :copy, :stop]` — emitted when the table's copy completes.
+      A failed copy emits no `:stop` (and there is no copy exception event);
+      failures surface through the surrounding `[:blink, :run]` span instead.
       * Measurements: `:duration`, `:row_count`
       * Metadata: as for `:start`
 
@@ -64,9 +66,9 @@ defmodule Blink.Telemetry do
 
   ## Default logger
 
-  `attach_default_logger/1` logs run start, stop, and failure at the given
-  level (default `:info`), and per-declaration build times and per-table copy
-  times at `:debug`:
+  `attach_default_logger/1` logs run start and stop at the given level
+  (default `:info`), run and build failures at `:error`, and per-declaration
+  build times and per-table copy times at `:debug`:
 
       [info] Seeding MyApp.Repo (3 tables)...
       [debug] Copied 1000 rows into "users" in 12 ms
@@ -80,9 +82,9 @@ defmodule Blink.Telemetry do
   @doc """
   Attaches a logger to Blink's telemetry events.
 
-  Run start, stop, and failure are logged at `level`; build and copy
-  completions are logged at `:debug`. Returns `{:error, :already_exists}` if
-  the logger is already attached.
+  Run start and stop are logged at `level`; run and build failures at
+  `:error`; build and copy completions at `:debug`. Returns
+  `{:error, :already_exists}` if the logger is already attached.
   """
   @spec attach_default_logger(level :: Logger.level()) :: :ok | {:error, :already_exists}
   def attach_default_logger(level \\ :info) do
@@ -91,6 +93,7 @@ defmodule Blink.Telemetry do
       [:blink, :run, :stop],
       [:blink, :run, :exception],
       [:blink, :build, :stop],
+      [:blink, :build, :exception],
       [:blink, :copy, :stop]
     ]
 
@@ -128,6 +131,14 @@ defmodule Blink.Telemetry do
 
   def handle_event([:blink, :build, :stop], measurements, metadata, _level) do
     Logger.debug("Built #{metadata.callback} #{inspect(metadata.key)} in #{ms(measurements)} ms")
+  end
+
+  def handle_event([:blink, :build, :exception], measurements, metadata, _level) do
+    Logger.error(
+      "Building #{metadata.callback} #{inspect(metadata.key)} failed after " <>
+        "#{ms(measurements)} ms: " <>
+        Exception.format_banner(metadata.kind, metadata.reason, metadata.stacktrace)
+    )
   end
 
   def handle_event([:blink, :copy, :stop], measurements, metadata, _level) do

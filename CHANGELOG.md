@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- `Blink.Telemetry.attach_default_logger/1` now attaches `[:blink, :build, :exception]`, so a table or context builder that raises is logged with its duration; the event was emitted but never attached, leaving build failures unlogged. Run and build failures are always logged at `:error` — the `level` argument applies to the run start and stop lines, which is what the code always did; the documentation previously claimed the level applied to failures too.
+
 ## [0.9.0] - 2026-08-07
 
 ### Added
