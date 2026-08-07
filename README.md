@@ -9,7 +9,7 @@ Add `blink` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:blink, "~> 0.8.0"}
+    {:blink, "~> 0.9.0"}
   ]
 end
 ```
@@ -62,9 +62,12 @@ MyApp.Seeder.call()
 
 - **Fast bulk inserts** of data into PostgreSQL
 - **All-or-nothing seeding** by default, with an opt-out for maximum speed
+- **Row validation** that fails fast when rows disagree about their columns
 - **Stream support** for memory-efficient seeding
 - **CSV/JSON loading** with built-in helpers
 - **JSONB support** with automatic JSON encoding
+- **Telemetry spans** for builds, runs, and copies, with an attachable default logger
+- **Sequence resets** for serial and identity keys after seeding explicit IDs
 - **Extensible** via adapters for other databases
 
 ## Documentation
