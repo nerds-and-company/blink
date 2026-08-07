@@ -82,6 +82,9 @@ defmodule Blink.Seeder do
       `run/3`.
     * `:concurrency` - Number of parallel workers. Overrides `:concurrency` in
       `run/3`.
+    * `:reset_sequences` - Advance this table's primary key sequence past the
+      highest copied value after its copy. Overrides `:reset_sequences` in
+      `run/3`.
 
   ## Examples
 
@@ -104,7 +107,7 @@ defmodule Blink.Seeder do
     reject_reserved_opts!(opts)
 
     seeder
-    |> put_in([:tables, table_name], builder.(seeder, table_name))
+    |> put_in([:tables, table_name], build(seeder, table_name, builder, :table))
     |> update_in([:table_order], fn order -> order ++ [table_name] end)
     |> put_in([:table_opts, table_name], opts)
   end
@@ -128,7 +131,19 @@ defmodule Blink.Seeder do
       when is_key(key) and is_function(builder, 2) do
     raise_if_key_exists(seeder, key, :context)
 
-    put_in(seeder.context[key], builder.(seeder, key))
+    put_in(seeder.context[key], build(seeder, key, builder, :context))
+  end
+
+  # Builders run here, at declaration time, not inside `run/3` — so the
+  # `[:blink, :build]` span is the only place their cost is visible. The
+  # metadata key is :callback rather than :kind because the span's exception
+  # event claims :kind for the raise class.
+  defp build(seeder, key, builder, callback) do
+    metadata = %{callback: callback, key: key}
+
+    :telemetry.span([:blink, :build], metadata, fn ->
+      {builder.(seeder, key), metadata}
+    end)
   end
 
   defp raise_if_key_exists(%__MODULE__{} = seeder, key, target) do
@@ -193,6 +208,11 @@ defmodule Blink.Seeder do
       encoders feeding the single connection when `atomic: true`. See
       `Blink.Adapter.Postgres` for defaults. Can be overridden per-table via
       `with_table/4`.
+    * `:reset_sequences` - Advance each table's `serial` or identity primary
+      key sequence past the highest copied value after its copy (default:
+      `false`). Primary keys without a sequence are unaffected. Can be
+      overridden per-table via `with_table/4`. Not safe on tables receiving
+      concurrent inserts; see `Blink.Adapter.Postgres`.
 
   ## Atomicity
 
@@ -209,6 +229,13 @@ defmodule Blink.Seeder do
   that cannot see the transaction's uncommitted data and whose commits survive
   its rollback. Never pass `atomic: false` to a seed running inside your own
   transaction.
+
+  ## Telemetry
+
+  `run/3` is wrapped in a `[:blink, :run]` telemetry span covering the copy
+  phase; table builders run earlier, at declaration time, under `[:blink,
+  :build]` spans. See `Blink.Telemetry` for the event reference and a default
+  logger.
 
   ## Returns
 
@@ -242,14 +269,20 @@ defmodule Blink.Seeder do
       end)
     end
 
-    if atomic do
-      # The checkout timeout is :infinity because this connection is held for
-      # the whole seed; each database operation is bounded by :timeout instead
-      # (see Blink.Adapter.Postgres).
-      repo.transaction(copy_tables, timeout: :infinity)
-    else
-      copy_tables.()
-    end
+    metadata = %{repo: repo, tables: seeder.table_order, atomic: atomic}
+
+    :telemetry.span([:blink, :run], metadata, fn ->
+      if atomic do
+        # The checkout timeout is :infinity because this connection is held for
+        # the whole seed; each database operation is bounded by :timeout instead
+        # (see Blink.Adapter.Postgres).
+        repo.transaction(copy_tables, timeout: :infinity)
+      else
+        copy_tables.()
+      end
+
+      {:ok, metadata}
+    end)
 
     :ok
   end
