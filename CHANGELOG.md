@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `with_table/2,3` (defined by `use Blink`) accepts a list of table names, declaring each in order as if by one call per name, with the options applying to every table in the list: `new() |> with_table(["users", "posts", "comments"])`.
+
 ## [0.8.0] - 2026-08-05
 
 ### Added

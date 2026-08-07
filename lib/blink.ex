@@ -39,6 +39,7 @@ defmodule Blink do
 
     * `with_table(seeder, table_name)` and `with_table(seeder, table_name, opts)` —
       declare a table; the rows come from your `table/2` clause for that name.
+      A list of names declares each in order.
     * `with_context(seeder, key)` — declare a context key; the value comes from
       your `context/2` clause for that key.
 
@@ -215,6 +216,10 @@ defmodule Blink do
       `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), which
       override the ones given to `run/3`.
 
+      `table_name` may also be a list of names: each is declared in order, as
+      if by one `with_table` call per name, with `opts` applying to every
+      table in the list.
+
       Raises `Blink.MissingClauseError` when no `table/2` clause matches
       `table_name`.
 
@@ -222,10 +227,23 @@ defmodule Blink do
           |> with_table("users")
           |> with_table("posts", batch_size: 1_000)
           |> run(MyApp.Repo)
+
+          new()
+          |> with_table(["users", "posts", "comments"])
+          |> run(MyApp.Repo)
       """
-      @spec with_table(seeder :: Seeder.t(), table_name :: Seeder.key(), opts :: Keyword.t()) ::
-              Seeder.t()
-      def with_table(%Seeder{} = seeder, table_name, opts \\ []) when is_key(table_name) do
+      @spec with_table(
+              seeder :: Seeder.t(),
+              table_name :: Seeder.key() | [Seeder.key()],
+              opts :: Keyword.t()
+            ) :: Seeder.t()
+      def with_table(seeder, table_name, opts \\ [])
+
+      def with_table(%Seeder{} = seeder, table_names, opts) when is_list(table_names) do
+        Enum.reduce(table_names, seeder, &with_table(&2, &1, opts))
+      end
+
+      def with_table(%Seeder{} = seeder, table_name, opts) when is_key(table_name) do
         Blink.__with_table__(seeder, table_name, &table/2, opts, __MODULE__)
       end
 
