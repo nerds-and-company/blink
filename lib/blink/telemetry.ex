@@ -51,13 +51,19 @@ defmodule Blink.Telemetry do
   Emitted by `Blink.Adapter.Postgres` for each table copied.
 
     * `[:blink, :copy, :start]` — emitted once per table, before the first
-      batch is written.
+      batch is written. A table whose builder returned no rows emits neither
+      `:start` nor `:stop`.
       * Measurements: `:system_time`
       * Metadata: `:table_name`, `:batch_size`, `:concurrency`, `:timeout`,
         `:atomic`
-    * `[:blink, :copy, :stop]` — emitted when the table's copy completes.
-      A failed copy emits no `:stop` (and there is no copy exception event);
-      failures surface through the surrounding `[:blink, :run]` span instead.
+    * `[:blink, :copy, :stop]` — emitted when the table's copy — including
+      its sequence reset, with `reset_sequences: true` — completes. A failed
+      copy emits no `:stop` (and there is no copy exception event): inside
+      `Blink.Seeder.run/3` the failure surfaces through the `[:blink, :run]`
+      span, while for a direct `Blink.copy_to_table/4` call the raised
+      exception is the only failure signal. In an atomic run the event fires
+      inside the transaction, so a later table's failure can still roll the
+      counted rows back — `:stop` reports a completed copy, not a commit.
       * Measurements: `:duration`, `:row_count`
       * Metadata: as for `:start`
 
@@ -66,9 +72,8 @@ defmodule Blink.Telemetry do
 
   ## Default logger
 
-  `attach_default_logger/1` logs run start and stop at the given level
-  (default `:info`), run and build failures at `:error`, and per-declaration
-  build times and per-table copy times at `:debug`:
+  `attach_default_logger/1` logs seed progress from these events; its
+  documentation lists which level each line uses:
 
       [info] Seeding MyApp.Repo (3 tables)...
       [debug] Copied 1000 rows into "users" in 12 ms
@@ -79,6 +84,18 @@ defmodule Blink.Telemetry do
 
   @handler_id "blink-default-logger"
 
+  # Single source for the attach list: every event named here must have a
+  # handle_event/4 clause — a missing clause would crash the handler and make
+  # :telemetry silently detach the whole logger mid-run.
+  @logged_events [
+    [:blink, :run, :start],
+    [:blink, :run, :stop],
+    [:blink, :run, :exception],
+    [:blink, :build, :stop],
+    [:blink, :build, :exception],
+    [:blink, :copy, :stop]
+  ]
+
   @doc """
   Attaches a logger to Blink's telemetry events.
 
@@ -88,16 +105,7 @@ defmodule Blink.Telemetry do
   """
   @spec attach_default_logger(level :: Logger.level()) :: :ok | {:error, :already_exists}
   def attach_default_logger(level \\ :info) do
-    events = [
-      [:blink, :run, :start],
-      [:blink, :run, :stop],
-      [:blink, :run, :exception],
-      [:blink, :build, :stop],
-      [:blink, :build, :exception],
-      [:blink, :copy, :stop]
-    ]
-
-    :telemetry.attach_many(@handler_id, events, &__MODULE__.handle_event/4, level)
+    :telemetry.attach_many(@handler_id, @logged_events, &__MODULE__.handle_event/4, level)
   end
 
   @doc """
@@ -123,10 +131,7 @@ defmodule Blink.Telemetry do
   end
 
   def handle_event([:blink, :run, :exception], measurements, metadata, _level) do
-    Logger.error(
-      "Seeding #{inspect(metadata.repo)} failed after #{ms(measurements)} ms: " <>
-        Exception.format_banner(metadata.kind, metadata.reason, metadata.stacktrace)
-    )
+    Logger.error("Seeding #{inspect(metadata.repo)} " <> failure(measurements, metadata))
   end
 
   def handle_event([:blink, :build, :stop], measurements, metadata, _level) do
@@ -135,9 +140,8 @@ defmodule Blink.Telemetry do
 
   def handle_event([:blink, :build, :exception], measurements, metadata, _level) do
     Logger.error(
-      "Building #{metadata.callback} #{inspect(metadata.key)} failed after " <>
-        "#{ms(measurements)} ms: " <>
-        Exception.format_banner(metadata.kind, metadata.reason, metadata.stacktrace)
+      "Building #{metadata.callback} #{inspect(metadata.key)} " <>
+        failure(measurements, metadata)
     )
   end
 
@@ -153,6 +157,11 @@ defmodule Blink.Telemetry do
       1 -> "1 table"
       n -> "#{n} tables"
     end
+  end
+
+  defp failure(measurements, metadata) do
+    "failed after #{ms(measurements)} ms: " <>
+      Exception.format_banner(metadata.kind, metadata.reason, metadata.stacktrace)
   end
 
   defp ms(%{duration: duration}) do

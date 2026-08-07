@@ -102,6 +102,11 @@ defmodule Blink.TelemetryTest do
 
       assert log =~ "Seeding BlinkTest.Repo (1 table)..."
       assert log =~ ~r/Seeded BlinkTest\.Repo \(1 table\) in \d+ ms/
+
+      # Every attached event must produce its line — a clause missing for an
+      # attached event would crash the handler and detach the whole logger.
+      assert log =~ ~s(Built table "users")
+      assert log =~ ~r/Copied 1 rows into "users"/
     end
 
     test "logs a failed build as an error" do
