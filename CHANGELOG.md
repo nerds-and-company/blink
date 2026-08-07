@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `Blink.RowError`, raised when a row's keys differ from the first row's. The message names the table, the offending row's index, and the missing and extra keys.
+
+### Changed
+- **Breaking:** Every row must now have the same keys as the first row, or the copy raises `Blink.RowError`. The column list is read from the keys of the first row, so previously a key missing from a later row was silently inserted as `NULL` (or failed the COPY on a `NOT NULL` column without naming the culprit) and an extra key was silently dropped — the documented "all maps must have the same keys" contract was never enforced. Validation runs as rows are consumed: with `atomic: true` (the default) a failed seed leaves nothing behind; with `atomic: false` a mismatch surfaces like any other mid-copy failure, with earlier batches possibly committed.
+
 ## [0.8.0] - 2026-08-05
 
 ### Added

@@ -432,8 +432,8 @@ defmodule Blink do
 
   ## Notes
 
-  The function assumes all rows have the same structure. Column names are
-  extracted from the first row in the enumerable.
+  Column names are extracted from the first row in the enumerable, and every
+  row must have the same keys — a mismatch raises `Blink.RowError`.
 
   Currently only PostgreSQL is supported via `Blink.Adapter.Postgres`.
   """
