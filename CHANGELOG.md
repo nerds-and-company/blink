@@ -16,6 +16,7 @@
 
 ### Documentation
 - Added the [Building Rows](guides/building_rows.md) guide: build plain maps, not schema structs. It explains the three `Repo.insert` habits that do not carry over to COPY (column selection, autogeneration, nil handling), shows a canonical seeder shape (fixed rows in module attributes, a `call/0` entrypoint, string table names, one timestamp for the whole seed), and covers passing calendar structs directly, leaving columns to their database defaults, entrypoint naming (`run/2,3` on your module overrides Blink's — the documented mechanism, whether you meant it or not), scoping the dependency per mix env, CI timeouts, testing seeders under `Ecto.Adapters.SQL.Sandbox` (atomic seeds enroll in the sandbox, so `async: true` works), and trigger behavior during COPY.
+- Rewrote the ExMachina guide around the two real pairings: map factories dedicated to seeding (the simple path — the maps are the rows), and struct factories shared with the test suite, which should stay structs and be converted at the seeder boundary. The guide now gives the conversion recipe — `to_row/2` (`Map.from_struct/1` + `Map.take(__schema__(:fields))` with an explicit-vs-database id policy) and `drop_all_nil_columns/1` for schemas that lean on database defaults — instead of pretending the struct case does not exist.
 
 ## [0.8.0] - 2026-08-05
 
