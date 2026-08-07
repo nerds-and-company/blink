@@ -7,6 +7,13 @@ defmodule Blink.RowError do
   a key missing from a later row would be inserted as `NULL`, and an extra key
   would be silently dropped. The message names the table, the offending row's
   index, and the keys that differ.
+
+  If your rows legitimately vary — optional fields from an external source,
+  for example — normalize them before copying, choosing explicitly which
+  columns every row provides:
+
+      defaults = %{name: nil, email: nil}
+      rows = Enum.map(raw_rows, &Map.merge(defaults, &1))
   """
 
   defexception [:table_name, :index, :missing, :extra]
