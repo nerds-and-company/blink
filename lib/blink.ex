@@ -43,8 +43,8 @@ defmodule Blink do
       your `context/2` clause for that key.
 
   `use Blink` also imports `new/0` and, from this module, `put_table/2,3,4`,
-  `put_context/2,3`, `copy_to_table/3,4`, `from_csv/1,2` and `from_json/1,2`, so
-  you call all of them unqualified.
+  `put_context/2,3`, `fetch_row!/3`, `copy_to_table/3,4`, `from_csv/1,2` and
+  `from_json/1,2`, so you call all of them unqualified.
 
   ### Choosing between with_* and put_*
 
@@ -193,6 +193,7 @@ defmodule Blink do
 
       import Blink,
         only: [
+          fetch_row!: 3,
           from_csv: 1,
           from_csv: 2,
           from_json: 1,
@@ -391,6 +392,53 @@ defmodule Blink do
         ) :: Seeder.t()
   def put_table(seeder, table_name, rows, opts \\ []) do
     Seeder.with_table(seeder, table_name, fn _seeder, _table_name -> rows end, opts)
+  end
+
+  @doc """
+  Fetches the first row in `table_name` whose fields match all of `clauses`,
+  raising if none does.
+
+  A safe replacement for `Enum.find/2` over `seeder.tables[...]`: a miss
+  raises `ArgumentError` naming the table and clauses, instead of returning
+  `nil` that crashes later, far from the cause. The table must already be
+  declared; atom and string table names are interchangeable, as in the rest of
+  the seeder API.
+
+  Use this only with tables whose rows are lists — the lookup enumerates the
+  table, so it would consume a table built as a single-use stream.
+
+  ## Examples
+
+      def table(seeder, "posts") do
+        alice = fetch_row!(seeder, "users", email: "alice@example.com")
+
+        [%{id: 1, title: "Welcome", user_id: alice.id}]
+      end
+  """
+  @spec fetch_row!(seeder :: Seeder.t(), table_name :: Seeder.key(), clauses :: Keyword.t()) ::
+          map()
+  def fetch_row!(%Seeder{} = seeder, table_name, [_ | _] = clauses)
+      when is_binary(table_name) or is_atom(table_name) do
+    rows = declared_rows!(seeder, table_name)
+
+    Enum.find(rows, fn row ->
+      Enum.all?(clauses, fn {field, value} -> Map.get(row, field) == value end)
+    end) ||
+      raise ArgumentError, "no row in table #{inspect(table_name)} matches #{inspect(clauses)}"
+  end
+
+  defp declared_rows!(seeder, table_name) do
+    normalized = to_string(table_name)
+
+    case Enum.find(seeder.tables, fn {name, _rows} -> to_string(name) == normalized end) do
+      {_name, rows} ->
+        rows
+
+      nil ->
+        raise ArgumentError,
+              "table #{inspect(table_name)} has not been declared; " <>
+                "declared tables: #{inspect(seeder.table_order)}"
+    end
   end
 
   @doc """

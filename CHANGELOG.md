@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `Blink.fetch_row!/3` (imported by `use Blink`), which fetches the first row of a declared table matching the given field values and raises a descriptive `ArgumentError` on a miss — replacing hand-rolled `Enum.find/2` lookups whose `nil` result surfaces later as a crash far from the cause. Atom and string table names are interchangeable, matching the rest of the seeder API. Use it with list-backed tables only; the lookup enumerates the table, so it would consume a single-use stream.
+
 ## [0.8.0] - 2026-08-05
 
 ### Added
