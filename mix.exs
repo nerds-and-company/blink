@@ -83,6 +83,7 @@ defmodule Blink.MixProject do
       extras: [
         "README.md",
         "guides/getting_started.md",
+        "guides/building_rows.md",
         "guides/configuring_options.md",
         "guides/loading_data_from_files.md",
         "guides/integrating_with_ex_machina.md",
