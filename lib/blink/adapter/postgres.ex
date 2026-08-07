@@ -185,9 +185,9 @@ defmodule Blink.Adapter.Postgres do
         |> validate_batches(context)
         |> run_copy(context)
 
-        emit_stop(context, start_time)
-
         if Keyword.fetch!(opts, :reset_sequences), do: reset_sequences(context)
+
+        emit_stop(context, start_time)
 
         :ok
     end
