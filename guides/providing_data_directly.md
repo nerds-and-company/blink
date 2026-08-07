@@ -70,8 +70,9 @@ new()
 ```
 
 For per-table options — or a large table you want to stream — use `put_table/4`.
-It accepts the same per-table `:batch_size` and `:concurrency` options as
-`with_table/3`, and per-table values override the ones passed to `run/3`. The
+It accepts the same per-table `:batch_size`, `:concurrency`, and
+`:reset_sequences` options as `with_table/3`, and per-table values override
+the ones passed to `run/3`. The
 keyword form cannot carry options:
 
 ```elixir

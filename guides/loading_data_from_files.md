@@ -137,22 +137,6 @@ letting the adapter re-encode is a wasted round trip.
 
 JSON files are also supported via `from_json/2`.
 
-### Objects with optional fields
-
-Every row must have the same keys as the first row — Blink reads the column
-list from the first row, and a later row whose keys differ raises
-`Blink.RowError` when copied. JSON exports with optional fields must therefore
-be normalized, choosing explicitly which columns every row provides:
-
-```elixir
-defaults = %{"id" => nil, "name" => nil, "price" => nil, "discount" => nil}
-
-from_json("priv/seed_data/products.json", transform: &Map.merge(defaults, &1))
-```
-
-This also frees the result from depending on which object happens to come
-first in the file.
-
 ### Basic usage
 
 Create a JSON file at `priv/seed_data/products.json`:
@@ -193,6 +177,24 @@ def table(_seeder, "products") do
   )
 end
 ```
+
+### Objects with optional fields
+
+Every row must have the same keys as the first row — Blink reads the column
+list from the first row, and a later row whose keys differ raises
+`Blink.RowError` when copied. A JSON export whose objects omit optional
+fields — say some products in the file above carry no `"price"` — must
+therefore be normalized with `:transform`, choosing explicitly which columns
+every row provides:
+
+```elixir
+defaults = %{"id" => nil, "name" => nil, "price" => nil}
+
+Blink.from_json("priv/seed_data/products.json", transform: &Map.merge(defaults, &1))
+```
+
+This also frees the result from depending on which object happens to come
+first in the file.
 
 ### Seeding JSONB columns
 
