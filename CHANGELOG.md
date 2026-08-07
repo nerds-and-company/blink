@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.0] - 2026-08-07
 
 ### Added
 - `Blink.RowError`, raised when a row's keys differ from the first row's. The message names the table, the offending row's index, and the missing and extra keys.
@@ -154,6 +154,7 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.9.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.0
 [0.8.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.7.0
 [0.6.3]: https://github.com/nerds-and-company/blink/releases/tag/v0.6.3
