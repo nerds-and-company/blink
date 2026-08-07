@@ -156,19 +156,15 @@ were declared, so declare parents before children.
 > 1,000 leaves the sequence at 1, and the next ordinary insert your application
 > makes fails with a unique constraint violation on ID 1.
 >
-> Reset the sequence after seeding:
+> Pass `reset_sequences: true` to advance every seeded table's sequence past
+> the highest copied value:
 >
 > ```elixir
-> Ecto.Adapters.SQL.query!(Blog.Repo, """
->   SELECT setval(
->     pg_get_serial_sequence('users', 'id'),
->     (SELECT COALESCE(MAX(id), 1) FROM users)
->   )
-> """)
+> run(seeder, Blog.Repo, reset_sequences: true)
 > ```
 >
 > Tables with `uuid` primary keys, or integer keys you manage yourself, have no
-> sequence and need no reset.
+> sequence and are skipped.
 
 ## Streams
 

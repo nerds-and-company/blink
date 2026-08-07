@@ -23,7 +23,7 @@ defmodule Blink.Adapter.Postgres do
     @moduledoc false
 
     @enforce_keys [:repo, :table_name, :batch_size, :concurrency, :timeout, :atomic, :escape_cp]
-    defstruct @enforce_keys ++ [:columns, :columns_string]
+    defstruct @enforce_keys ++ [:columns, :columns_string, :row_counter]
 
     @type t :: %__MODULE__{
             repo: Ecto.Repo.t(),
@@ -34,7 +34,8 @@ defmodule Blink.Adapter.Postgres do
             atomic: boolean(),
             escape_cp: :binary.cp(),
             columns: [atom() | String.t()] | nil,
-            columns_string: String.t() | nil
+            columns_string: String.t() | nil,
+            row_counter: :counters.counters_ref() | nil
           }
 
     def put_column_fields(%__MODULE__{} = context, columns) when is_list(columns) do
@@ -53,9 +54,10 @@ defmodule Blink.Adapter.Postgres do
 
     * `rows` - An enumerable (list or stream) of maps where each map represents
       a row to insert. All maps must have the same keys, which correspond to the
-      table columns. Using a stream allows for memory-efficient seeding of large
-      datasets. The input is consumed exactly once, so single-use streams are
-      safe.
+      table columns; a row whose keys differ from the first row's raises
+      `Blink.RowError`. Using a stream allows for memory-efficient seeding of
+      large datasets. The input is consumed exactly once, so single-use streams
+      are safe.
     * `table_name` - The name of the table to insert into (string).
     * `repo` - An Ecto repository module configured with a Postgres adapter.
     * `opts` - Keyword list of options. Unknown keys and invalid values raise
@@ -90,6 +92,17 @@ defmodule Blink.Adapter.Postgres do
         checkout deadline cannot bound individual operations inside one
         transaction. Set to `:infinity` to disable Blink's timeout (a
         server-configured `statement_timeout` still applies).
+      * `:reset_sequences` - After the copy, advance the sequence behind each
+        of the table's `serial` or identity primary key columns past the
+        highest copied value (default: `false`). Explicit IDs do not advance
+        a sequence, so without this the application's next ordinary insert
+        collides with a seeded row. Primary keys without a sequence (`uuid`,
+        self-managed integers) are unaffected. No rows, no reset: the option
+        does nothing when the input is empty. Intended for seed-time use —
+        the reset derives its target from the `MAX()` of *visible* rows, so
+        on a table receiving concurrent inserts it can move the sequence
+        backwards past values already handed out to in-flight transactions,
+        causing unique violations later.
 
   ## Returns
 
@@ -114,8 +127,12 @@ defmodule Blink.Adapter.Postgres do
 
   ## Notes
 
-  The function assumes all rows have the same keys. NULL values are represented
-  as `\\N` in the CSV format. Nested maps are automatically JSON-encoded for
+  The column list is read from the keys of the first row, and every subsequent
+  row must have exactly the same keys — a mismatch raises `Blink.RowError` when
+  the offending row is reached. With `atomic: true` (the default) a failed
+  validation therefore leaves nothing behind; with `atomic: false` it surfaces
+  like any other mid-copy failure, with earlier batches possibly committed.
+  NULL values are represented as `\\N` in the CSV format. Nested maps are automatically JSON-encoded for
   JSONB columns; values that are already JSON strings are inserted as-is, so
   passing pre-encoded JSON avoids a redundant `Jason.encode!/1` call. Elixir
   lists are encoded as PostgreSQL array literals for array columns (`int[]`,
@@ -149,9 +166,62 @@ defmodule Blink.Adapter.Postgres do
       escape_cp: :binary.compile_pattern(@escape_chars)
     }
 
-    rows
-    |> Stream.chunk_every(context.batch_size)
-    |> run_copy(context)
+    case uncons(rows) do
+      :empty ->
+        :ok
+
+      {first_row, rest} ->
+        context = %{
+          Context.put_column_fields(context, Map.keys(first_row))
+          | row_counter: :counters.new(1, [])
+        }
+
+        emit_start(context)
+        start_time = System.monotonic_time()
+
+        [[first_row], rest]
+        |> Stream.concat()
+        |> Stream.chunk_every(context.batch_size)
+        |> validate_batches(context)
+        |> run_copy(context)
+
+        emit_stop(context, start_time)
+
+        if Keyword.fetch!(opts, :reset_sequences), do: reset_sequences(context)
+
+        :ok
+    end
+  end
+
+  # setval is non-transactional, so a later rollback leaves the sequence
+  # advanced — harmless, since the sequence only needs to clear the seeded
+  # ids. Inside an atomic run the MAX() sees the uncommitted rows because the
+  # query runs on the same connection.
+  defp reset_sequences(%Context{repo: repo, table_name: table_name}) do
+    %{rows: pk_columns} =
+      repo.query!(
+        """
+        SELECT a.attname::text, pg_get_serial_sequence($1, a.attname::text)
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = to_regclass($1) AND i.indisprimary
+        """,
+        [table_name]
+      )
+
+    Enum.each(pk_columns, fn
+      [_column, nil] ->
+        :ok
+
+      [column, sequence] ->
+        # The ::text::regclass cast lets the sequence name travel as a plain
+        # string parameter; Postgrex refuses binaries for bare oid types.
+        repo.query!(
+          ~s|SELECT setval($1::text::regclass, COALESCE(MAX("#{column}") + 1, 1), false) | <>
+            "FROM #{table_name}",
+          [sequence]
+        )
+    end)
   end
 
   defp default_concurrency(true), do: System.schedulers_online()
@@ -159,7 +229,13 @@ defmodule Blink.Adapter.Postgres do
 
   defp validate_opts!(opts) do
     opts =
-      Keyword.validate!(opts, [:concurrency, batch_size: 8_000, timeout: 15_000, atomic: true])
+      Keyword.validate!(opts, [
+        :concurrency,
+        batch_size: 8_000,
+        timeout: 15_000,
+        atomic: true,
+        reset_sequences: false
+      ])
 
     Enum.each(opts, &validate_opt!/1)
     opts
@@ -171,43 +247,58 @@ defmodule Blink.Adapter.Postgres do
   defp validate_opt!({:timeout, value})
        when (is_integer(value) and value > 0) or value == :infinity, do: :ok
 
-  defp validate_opt!({:atomic, value}) when is_boolean(value), do: :ok
+  defp validate_opt!({key, value}) when key in [:atomic, :reset_sequences] and is_boolean(value),
+    do: :ok
 
   defp validate_opt!({key, value}) do
     raise ArgumentError, "invalid value #{inspect(value)} for option #{inspect(key)}"
   end
 
+  # Validation runs in the calling process as batches are pulled toward the
+  # COPY, so a mismatch raises `Blink.RowError` directly in the caller instead
+  # of surfacing as a wrapped worker error. The running index is the row's
+  # absolute position in the input, addressable with `Enum.at/2`.
+  # The counter mirrors the running index out of the stream: its final value
+  # is the table's row count for the copy :stop event, which is otherwise
+  # unreachable once the stream has been consumed.
+  defp validate_batches(batches, %Context{columns: columns} = context) do
+    count = length(columns)
+
+    Stream.transform(batches, 0, fn batch, index ->
+      index = validate_batch!(batch, context, count, index)
+      :counters.put(context.row_counter, 1, index)
+      {[batch], index}
+    end)
+  end
+
+  defp validate_batch!(batch, %Context{columns: columns} = context, count, index) do
+    Enum.reduce(batch, index, fn row, index ->
+      if map_size(row) == count and Enum.all?(columns, &is_map_key(row, &1)) do
+        index + 1
+      else
+        row_keys = Map.keys(row)
+
+        raise Blink.RowError,
+          table_name: context.table_name,
+          index: index,
+          missing: Enum.sort(columns -- row_keys),
+          extra: Enum.sort(row_keys -- columns)
+      end
+    end)
+  end
+
   defp run_copy(batches, %Context{atomic: true} = context) do
-    case uncons(batches) do
-      :empty ->
-        :ok
+    batches
+    |> execute_copy_atomic(context)
+    |> check_copy!()
 
-      {first_batch, rest} ->
-        context = Context.put_column_fields(context, Map.keys(hd(first_batch)))
-        emit_telemetry(context)
-
-        [[first_batch], rest]
-        |> Stream.concat()
-        |> execute_copy_atomic(context)
-        |> check_copy!()
-
-        :ok
-    end
+    :ok
   end
 
   defp run_copy(batches, %Context{atomic: false} = context) do
     batches
-    |> Stream.transform(context, fn
-      [first_row | _] = batch, %{columns: nil} = context ->
-        context = Context.put_column_fields(context, Map.keys(first_row))
-        emit_telemetry(context)
-        {[{batch, context}], context}
-
-      batch, context ->
-        {[{batch, context}], context}
-    end)
     |> Task.async_stream(
-      fn {batch, context} -> try_execute_copy(batch, context) end,
+      fn batch -> try_execute_copy(batch, context) end,
       max_concurrency: context.concurrency,
       ordered: false,
       timeout: :infinity
@@ -234,24 +325,39 @@ defmodule Blink.Adapter.Postgres do
   defp check_copy!({:ok, _result}), do: :ok
   defp check_copy!(other), do: raise("COPY failed: #{inspect(other)}")
 
-  defp emit_telemetry(%{
+  defp emit_start(context) do
+    :telemetry.execute(
+      [:blink, :copy, :start],
+      %{system_time: System.system_time()},
+      copy_metadata(context)
+    )
+  end
+
+  defp emit_stop(context, start_time) do
+    :telemetry.execute(
+      [:blink, :copy, :stop],
+      %{
+        duration: System.monotonic_time() - start_time,
+        row_count: :counters.get(context.row_counter, 1)
+      },
+      copy_metadata(context)
+    )
+  end
+
+  defp copy_metadata(%{
          table_name: table_name,
          batch_size: batch_size,
          concurrency: concurrency,
          timeout: timeout,
          atomic: atomic
        }) do
-    :telemetry.execute(
-      [:blink, :copy, :start],
-      %{system_time: System.system_time()},
-      %{
-        table_name: table_name,
-        batch_size: batch_size,
-        concurrency: concurrency,
-        timeout: timeout,
-        atomic: atomic
-      }
-    )
+    %{
+      table_name: table_name,
+      batch_size: batch_size,
+      concurrency: concurrency,
+      timeout: timeout,
+      atomic: atomic
+    }
   end
 
   defp execute_copy(

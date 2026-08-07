@@ -47,6 +47,7 @@ defmodule Blink.MixProject do
     [
       {:ecto, "~> 3.10"},
       {:ecto_sql, "~> 3.10"},
+      {:telemetry, "~> 1.1"},
       {:nimble_csv, "~> 1.2"},
       {:jason, "~> 1.4"},
       {:postgrex, "~> 0.17", only: :test},
@@ -83,6 +84,7 @@ defmodule Blink.MixProject do
       extras: [
         "README.md",
         "guides/getting_started.md",
+        "guides/building_rows.md",
         "guides/configuring_options.md",
         "guides/loading_data_from_files.md",
         "guides/integrating_with_ex_machina.md",

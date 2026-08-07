@@ -39,12 +39,13 @@ defmodule Blink do
 
     * `with_table(seeder, table_name)` and `with_table(seeder, table_name, opts)` —
       declare a table; the rows come from your `table/2` clause for that name.
+      A list of names declares each in order.
     * `with_context(seeder, key)` — declare a context key; the value comes from
       your `context/2` clause for that key.
 
   `use Blink` also imports `new/0` and, from this module, `put_table/2,3,4`,
-  `put_context/2,3`, `copy_to_table/3,4`, `from_csv/1,2` and `from_json/1,2`, so
-  you call all of them unqualified.
+  `put_context/2,3`, `fetch_row!/3`, `copy_to_table/3,4`, `from_csv/1,2` and
+  `from_json/1,2`, so you call all of them unqualified.
 
   ### Choosing between with_* and put_*
 
@@ -95,8 +96,9 @@ defmodule Blink do
   >
   > Inserting explicit IDs does not advance a `serial`, `bigserial`, or identity
   > sequence, so the next ordinary insert your application makes can collide with
-  > a seeded row. See
-  > [Getting Started](getting_started.html#choosing-ids) for the reset query.
+  > a seeded row. Pass `reset_sequences: true` to `run/3` to advance the
+  > sequences after seeding; see
+  > [Getting Started](getting_started.html#choosing-ids).
 
   ## Seeders
 
@@ -193,6 +195,7 @@ defmodule Blink do
 
       import Blink,
         only: [
+          fetch_row!: 3,
           from_csv: 1,
           from_csv: 2,
           from_json: 1,
@@ -212,8 +215,12 @@ defmodule Blink do
 
       The clause receives the seeder built so far, so it can read tables and
       context declared before it. `opts` takes per-table options (for
-      `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), which
-      override the ones given to `run/3`.
+      `Blink.Adapter.Postgres`: `:batch_size`, `:concurrency`, and
+      `:reset_sequences`), which override the ones given to `run/3`.
+
+      `table_name` may also be a list of names: each is declared in order, as
+      if by one `with_table` call per name, with `opts` applying to every
+      table in the list.
 
       Raises `Blink.MissingClauseError` when no `table/2` clause matches
       `table_name`.
@@ -222,10 +229,23 @@ defmodule Blink do
           |> with_table("users")
           |> with_table("posts", batch_size: 1_000)
           |> run(MyApp.Repo)
+
+          new()
+          |> with_table(["users", "posts", "comments"])
+          |> run(MyApp.Repo)
       """
-      @spec with_table(seeder :: Seeder.t(), table_name :: Seeder.key(), opts :: Keyword.t()) ::
-              Seeder.t()
-      def with_table(%Seeder{} = seeder, table_name, opts \\ []) when is_key(table_name) do
+      @spec with_table(
+              seeder :: Seeder.t(),
+              table_name :: Seeder.key() | [Seeder.key()],
+              opts :: Keyword.t()
+            ) :: Seeder.t()
+      def with_table(seeder, table_name, opts \\ [])
+
+      def with_table(%Seeder{} = seeder, table_names, opts) when is_list(table_names) do
+        Enum.reduce(table_names, seeder, &with_table(&2, &1, opts))
+      end
+
+      def with_table(%Seeder{} = seeder, table_name, opts) when is_key(table_name) do
         Blink.__with_table__(seeder, table_name, &table/2, opts, __MODULE__)
       end
 
@@ -373,7 +393,8 @@ defmodule Blink do
   A convenience wrapper over `Blink.Seeder.with_table/4` for when the rows are
   already available and you do not want to define a `table/2` callback. `rows`
   may be a list or a stream. `opts` takes per-table options (for
-  `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), forwarded to
+  `Blink.Adapter.Postgres`: `:batch_size`, `:concurrency`, and
+  `:reset_sequences`), forwarded to
   `Blink.Seeder.with_table/4`. Raises `ArgumentError` if `table_name` is
   already present.
 
@@ -391,6 +412,53 @@ defmodule Blink do
         ) :: Seeder.t()
   def put_table(seeder, table_name, rows, opts \\ []) do
     Seeder.with_table(seeder, table_name, fn _seeder, _table_name -> rows end, opts)
+  end
+
+  @doc """
+  Fetches the first row in `table_name` whose fields match all of `clauses`,
+  raising if none does.
+
+  A safe replacement for `Enum.find/2` over `seeder.tables[...]`: a miss
+  raises `ArgumentError` naming the table and clauses, instead of returning
+  `nil` that crashes later, far from the cause. The table must already be
+  declared; atom and string table names are interchangeable, as in the rest of
+  the seeder API.
+
+  Use this only with tables whose rows are lists — the lookup enumerates the
+  table, so it would consume a table built as a single-use stream.
+
+  ## Examples
+
+      def table(seeder, "posts") do
+        alice = fetch_row!(seeder, "users", email: "alice@example.com")
+
+        [%{id: 1, title: "Welcome", user_id: alice.id}]
+      end
+  """
+  @spec fetch_row!(seeder :: Seeder.t(), table_name :: Seeder.key(), clauses :: Keyword.t()) ::
+          map()
+  def fetch_row!(%Seeder{} = seeder, table_name, [_ | _] = clauses)
+      when is_binary(table_name) or is_atom(table_name) do
+    rows = declared_rows!(seeder, table_name)
+
+    Enum.find(rows, fn row ->
+      Enum.all?(clauses, fn {field, value} -> Map.get(row, field) == value end)
+    end) ||
+      raise ArgumentError, "no row in table #{inspect(table_name)} matches #{inspect(clauses)}"
+  end
+
+  defp declared_rows!(seeder, table_name) do
+    normalized = to_string(table_name)
+
+    case Enum.find(seeder.tables, fn {name, _rows} -> to_string(name) == normalized end) do
+      {_name, rows} ->
+        rows
+
+      nil ->
+        raise ArgumentError,
+              "table #{inspect(table_name)} has not been declared; " <>
+                "declared tables: #{inspect(seeder.table_order)}"
+    end
   end
 
   @doc """
@@ -432,8 +500,8 @@ defmodule Blink do
 
   ## Notes
 
-  The function assumes all rows have the same structure. Column names are
-  extracted from the first row in the enumerable.
+  Column names are extracted from the first row in the enumerable, and every
+  row must have the same keys — a mismatch raises `Blink.RowError`.
 
   Currently only PostgreSQL is supported via `Blink.Adapter.Postgres`.
   """
