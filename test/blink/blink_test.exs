@@ -47,6 +47,80 @@ defmodule BlinkTest do
     end
   end
 
+  describe "with_table/2 with a list of names" do
+    test "declares each table in order" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table(["users", "posts"])
+        end
+
+        def table(_seeder, "users"), do: [%{id: 1}]
+
+        def table(seeder, "posts") do
+          # Reads a table declared earlier in the same list, proving the names
+          # are declared sequentially rather than all at once.
+          Enum.map(seeder.tables["users"], &%{id: &1.id + 1})
+        end
+      end
+
+      seeder = Dummy.call()
+
+      assert seeder.table_order == ["users", "posts"]
+      assert seeder.tables["posts"] == [%{id: 2}]
+    end
+
+    test "applies opts to every table in the list" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new()
+          |> with_table(["users", "posts"], batch_size: 100)
+        end
+
+        def table(_seeder, _name), do: []
+      end
+
+      assert %{table_opts: %{"users" => [batch_size: 100], "posts" => [batch_size: 100]}} =
+               Dummy.call()
+    end
+
+    test "raises if a listed name is already declared" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new() |> with_table(["users", "users"])
+        end
+
+        def table(_seeder, _name), do: []
+      end
+
+      assert_raise ArgumentError, fn ->
+        Dummy.call()
+      end
+    end
+
+    test "raises MissingClauseError for a listed name with no clause" do
+      defmodule Dummy do
+        use Blink
+
+        def call do
+          new() |> with_table(["users", "missing"])
+        end
+
+        def table(_seeder, "users"), do: []
+      end
+
+      assert_raise Blink.MissingClauseError, fn ->
+        Dummy.call()
+      end
+    end
+  end
+
   describe "with_context/2" do
     test "accepts atom and string keys" do
       defmodule Dummy do
