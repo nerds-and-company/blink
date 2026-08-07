@@ -12,7 +12,7 @@ conversion recipe.
 
 ## COPY is not Repo.insert
 
-`Ecto.Repo.insert/2` runs every value through the schema layer on its way to
+`c:Ecto.Repo.insert/2` runs every value through the schema layer on its way to
 the database. Blink hands your maps to PostgreSQL's `COPY` directly, and three
 habits from `Repo.insert` do not carry over:
 
