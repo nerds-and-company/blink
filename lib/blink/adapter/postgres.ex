@@ -92,6 +92,17 @@ defmodule Blink.Adapter.Postgres do
         checkout deadline cannot bound individual operations inside one
         transaction. Set to `:infinity` to disable Blink's timeout (a
         server-configured `statement_timeout` still applies).
+      * `:reset_sequences` - After the copy, advance the sequence behind each
+        of the table's `serial` or identity primary key columns past the
+        highest copied value (default: `false`). Explicit IDs do not advance
+        a sequence, so without this the application's next ordinary insert
+        collides with a seeded row. Primary keys without a sequence (`uuid`,
+        self-managed integers) are unaffected. No rows, no reset: the option
+        does nothing when the input is empty. Intended for seed-time use —
+        the reset derives its target from the `MAX()` of *visible* rows, so
+        on a table receiving concurrent inserts it can move the sequence
+        backwards past values already handed out to in-flight transactions,
+        causing unique violations later.
 
   ## Returns
 
@@ -176,8 +187,41 @@ defmodule Blink.Adapter.Postgres do
 
         emit_stop(context, start_time)
 
+        if Keyword.fetch!(opts, :reset_sequences), do: reset_sequences(context)
+
         :ok
     end
+  end
+
+  # setval is non-transactional, so a later rollback leaves the sequence
+  # advanced — harmless, since the sequence only needs to clear the seeded
+  # ids. Inside an atomic run the MAX() sees the uncommitted rows because the
+  # query runs on the same connection.
+  defp reset_sequences(%Context{repo: repo, table_name: table_name}) do
+    %{rows: pk_columns} =
+      repo.query!(
+        """
+        SELECT a.attname::text, pg_get_serial_sequence($1, a.attname::text)
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = to_regclass($1) AND i.indisprimary
+        """,
+        [table_name]
+      )
+
+    Enum.each(pk_columns, fn
+      [_column, nil] ->
+        :ok
+
+      [column, sequence] ->
+        # The ::text::regclass cast lets the sequence name travel as a plain
+        # string parameter; Postgrex refuses binaries for bare oid types.
+        repo.query!(
+          ~s|SELECT setval($1::text::regclass, COALESCE(MAX("#{column}") + 1, 1), false) | <>
+            "FROM #{table_name}",
+          [sequence]
+        )
+    end)
   end
 
   defp default_concurrency(true), do: System.schedulers_online()
@@ -185,7 +229,13 @@ defmodule Blink.Adapter.Postgres do
 
   defp validate_opts!(opts) do
     opts =
-      Keyword.validate!(opts, [:concurrency, batch_size: 8_000, timeout: 15_000, atomic: true])
+      Keyword.validate!(opts, [
+        :concurrency,
+        batch_size: 8_000,
+        timeout: 15_000,
+        atomic: true,
+        reset_sequences: false
+      ])
 
     Enum.each(opts, &validate_opt!/1)
     opts
@@ -197,7 +247,8 @@ defmodule Blink.Adapter.Postgres do
   defp validate_opt!({:timeout, value})
        when (is_integer(value) and value > 0) or value == :infinity, do: :ok
 
-  defp validate_opt!({:atomic, value}) when is_boolean(value), do: :ok
+  defp validate_opt!({key, value}) when key in [:atomic, :reset_sequences] and is_boolean(value),
+    do: :ok
 
   defp validate_opt!({key, value}) do
     raise ArgumentError, "invalid value #{inspect(value)} for option #{inspect(key)}"

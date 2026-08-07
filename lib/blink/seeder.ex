@@ -82,6 +82,9 @@ defmodule Blink.Seeder do
       `run/3`.
     * `:concurrency` - Number of parallel workers. Overrides `:concurrency` in
       `run/3`.
+    * `:reset_sequences` - Advance this table's primary key sequence past the
+      highest copied value after its copy. Overrides `:reset_sequences` in
+      `run/3`.
 
   ## Examples
 
@@ -205,6 +208,11 @@ defmodule Blink.Seeder do
       encoders feeding the single connection when `atomic: true`. See
       `Blink.Adapter.Postgres` for defaults. Can be overridden per-table via
       `with_table/4`.
+    * `:reset_sequences` - Advance each table's `serial` or identity primary
+      key sequence past the highest copied value after its copy (default:
+      `false`). Primary keys without a sequence are unaffected. Can be
+      overridden per-table via `with_table/4`. Not safe on tables receiving
+      concurrent inserts; see `Blink.Adapter.Postgres`.
 
   ## Atomicity
 

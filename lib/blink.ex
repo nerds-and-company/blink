@@ -95,8 +95,9 @@ defmodule Blink do
   >
   > Inserting explicit IDs does not advance a `serial`, `bigserial`, or identity
   > sequence, so the next ordinary insert your application makes can collide with
-  > a seeded row. See
-  > [Getting Started](getting_started.html#choosing-ids) for the reset query.
+  > a seeded row. Pass `reset_sequences: true` to `run/3` to advance the
+  > sequences after seeding; see
+  > [Getting Started](getting_started.html#choosing-ids).
 
   ## Seeders
 
@@ -212,7 +213,8 @@ defmodule Blink do
 
       The clause receives the seeder built so far, so it can read tables and
       context declared before it. `opts` takes per-table options (for
-      `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), which
+      `Blink.Adapter.Postgres`: `:batch_size`, `:concurrency`, and
+      `:reset_sequences`), which
       override the ones given to `run/3`.
 
       Raises `Blink.MissingClauseError` when no `table/2` clause matches
@@ -373,7 +375,8 @@ defmodule Blink do
   A convenience wrapper over `Blink.Seeder.with_table/4` for when the rows are
   already available and you do not want to define a `table/2` callback. `rows`
   may be a list or a stream. `opts` takes per-table options (for
-  `Blink.Adapter.Postgres`: `:batch_size` and `:concurrency`), forwarded to
+  `Blink.Adapter.Postgres`: `:batch_size`, `:concurrency`, and
+  `:reset_sequences`), forwarded to
   `Blink.Seeder.with_table/4`. Raises `ArgumentError` if `table_name` is
   already present.
 
