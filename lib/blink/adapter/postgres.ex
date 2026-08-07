@@ -23,7 +23,7 @@ defmodule Blink.Adapter.Postgres do
     @moduledoc false
 
     @enforce_keys [:repo, :table_name, :batch_size, :concurrency, :timeout, :atomic, :escape_cp]
-    defstruct @enforce_keys ++ [:columns, :columns_string]
+    defstruct @enforce_keys ++ [:columns, :columns_string, :row_counter]
 
     @type t :: %__MODULE__{
             repo: Ecto.Repo.t(),
@@ -34,7 +34,8 @@ defmodule Blink.Adapter.Postgres do
             atomic: boolean(),
             escape_cp: :binary.cp(),
             columns: [atom() | String.t()] | nil,
-            columns_string: String.t() | nil
+            columns_string: String.t() | nil,
+            row_counter: :counters.counters_ref() | nil
           }
 
     def put_column_fields(%__MODULE__{} = context, columns) when is_list(columns) do
@@ -159,14 +160,23 @@ defmodule Blink.Adapter.Postgres do
         :ok
 
       {first_row, rest} ->
-        context = Context.put_column_fields(context, Map.keys(first_row))
-        emit_telemetry(context)
+        context = %{
+          Context.put_column_fields(context, Map.keys(first_row))
+          | row_counter: :counters.new(1, [])
+        }
+
+        emit_start(context)
+        start_time = System.monotonic_time()
 
         [[first_row], rest]
         |> Stream.concat()
         |> Stream.chunk_every(context.batch_size)
         |> validate_batches(context)
         |> run_copy(context)
+
+        emit_stop(context, start_time)
+
+        :ok
     end
   end
 
@@ -197,11 +207,16 @@ defmodule Blink.Adapter.Postgres do
   # COPY, so a mismatch raises `Blink.RowError` directly in the caller instead
   # of surfacing as a wrapped worker error. The running index is the row's
   # absolute position in the input, addressable with `Enum.at/2`.
+  # The counter mirrors the running index out of the stream: its final value
+  # is the table's row count for the copy :stop event, which is otherwise
+  # unreachable once the stream has been consumed.
   defp validate_batches(batches, %Context{columns: columns} = context) do
     count = length(columns)
 
     Stream.transform(batches, 0, fn batch, index ->
-      {[batch], validate_batch!(batch, context, count, index)}
+      index = validate_batch!(batch, context, count, index)
+      :counters.put(context.row_counter, 1, index)
+      {[batch], index}
     end)
   end
 
@@ -259,24 +274,39 @@ defmodule Blink.Adapter.Postgres do
   defp check_copy!({:ok, _result}), do: :ok
   defp check_copy!(other), do: raise("COPY failed: #{inspect(other)}")
 
-  defp emit_telemetry(%{
+  defp emit_start(context) do
+    :telemetry.execute(
+      [:blink, :copy, :start],
+      %{system_time: System.system_time()},
+      copy_metadata(context)
+    )
+  end
+
+  defp emit_stop(context, start_time) do
+    :telemetry.execute(
+      [:blink, :copy, :stop],
+      %{
+        duration: System.monotonic_time() - start_time,
+        row_count: :counters.get(context.row_counter, 1)
+      },
+      copy_metadata(context)
+    )
+  end
+
+  defp copy_metadata(%{
          table_name: table_name,
          batch_size: batch_size,
          concurrency: concurrency,
          timeout: timeout,
          atomic: atomic
        }) do
-    :telemetry.execute(
-      [:blink, :copy, :start],
-      %{system_time: System.system_time()},
-      %{
-        table_name: table_name,
-        batch_size: batch_size,
-        concurrency: concurrency,
-        timeout: timeout,
-        atomic: atomic
-      }
-    )
+    %{
+      table_name: table_name,
+      batch_size: batch_size,
+      concurrency: concurrency,
+      timeout: timeout,
+      atomic: atomic
+    }
   end
 
   defp execute_copy(
