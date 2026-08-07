@@ -178,6 +178,24 @@ def table(_seeder, "products") do
 end
 ```
 
+### Objects with optional fields
+
+Every row must have the same keys as the first row — Blink reads the column
+list from the first row, and a later row whose keys differ raises
+`Blink.RowError` when copied. A JSON export whose objects omit optional
+fields — say some products in the file above carry no `"price"` — must
+therefore be normalized with `:transform`, choosing explicitly which columns
+every row provides:
+
+```elixir
+defaults = %{"id" => nil, "name" => nil, "price" => nil}
+
+Blink.from_json("priv/seed_data/products.json", transform: &Map.merge(defaults, &1))
+```
+
+This also frees the result from depending on which object happens to come
+first in the file.
+
 ### Seeding JSONB columns
 
 Blink automatically handles nested maps when inserting into JSONB columns. Create a JSON file with nested objects:
@@ -225,6 +243,10 @@ The functions `from_csv/2` and `from_json/2` will raise exceptions if:
 - The `:transform` function is not a single-arity function
 - For JSON: the root element is not an array, or the array contains non-object elements
 - For CSV: the `:headers` option is not `:infer` or a list of strings
+
+Separately, when the loaded rows are copied: a row whose keys differ from the
+first row's raises `Blink.RowError` — normalize sparse objects as shown in
+[Objects with optional fields](#objects-with-optional-fields).
 
 ## Summary
 

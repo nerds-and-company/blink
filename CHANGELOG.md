@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- With `reset_sequences: true`, the sequence reset now runs before the copy `:stop` event, so a failing reset (for example, a role without `UPDATE` privilege on the sequence) can no longer raise after a success-signaling `:stop` was emitted. The reset's time is included in the event's `:duration`.
+- `Blink.Telemetry.attach_default_logger/1` now attaches `[:blink, :build, :exception]`, so a table or context builder that raises is logged with its duration; the event was emitted but never attached, leaving build failures unlogged. Run and build failures are always logged at `:error` — the `level` argument applies to the run start and stop lines, which is what the code always did; the documentation previously claimed the level applied to failures too.
+
+### Documentation
+- Corrected the README feature bullets added in 0.9.0: copy instrumentation is a pair of plain events (`:start`, and `:stop` with a `:row_count`) rather than a span — there is no copy exception event, and a failed copy emits no `:stop`, which `Blink.Telemetry` now states explicitly — and sequence resets are opt-in via `reset_sequences: true`, not automatic.
+- Added `:reset_sequences` to the Configuring Options guide (global and per-table) and to the `copy_to_table/4` docs; both still enumerated the pre-0.9.0 option set.
+- Documented in Loading Data from Files that every row must share the first row's keys (`Blink.RowError`) and how to normalize JSON objects with optional fields. The file-loading guide is the primary path for sparse input, but the normalization recipe lived only in the Bulk Imports guide and the `Blink.RowError` docs.
+
 ## [0.9.0] - 2026-08-07
 
 ### Added

@@ -34,9 +34,11 @@ The following options are specific to `Blink.Adapter.Postgres`:
 
 - `:concurrency` - Number of parallel workers. By default (`atomic: true`) the workers encode rows in parallel while a single connection copies (default: the number of cores). With `atomic: false` each worker instead copies batches over its own database connection (default: 6), so configure your repo's `pool_size` to at least `:concurrency`.
 
+- `:reset_sequences` - After a table's copy, advance the sequence behind each of its `serial` or identity primary key columns past the highest copied value (default: `false`). Explicit IDs do not advance a sequence, so without this the application's next ordinary insert collides with a seeded row. Primary keys without a sequence are unaffected. Intended for seed-time use — not safe on tables receiving concurrent inserts.
+
 ## Per-table options
 
-Per-table options override global options for specific tables. The run-level options `:atomic` and `:timeout` apply to the whole run and raise `ArgumentError` when set per table; the tuning options `:batch_size` and `:concurrency` can be set freely. Pass them as the last argument to `with_table/3`:
+Per-table options override global options for specific tables. The run-level options `:adapter`, `:atomic`, and `:timeout` apply to the whole run and raise `ArgumentError` when set per table; `:batch_size`, `:concurrency`, and `:reset_sequences` can be set freely. Pass them as the last argument to `with_table/3`:
 
 ```elixir
 def call do

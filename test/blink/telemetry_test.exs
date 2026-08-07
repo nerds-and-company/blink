@@ -102,6 +102,28 @@ defmodule Blink.TelemetryTest do
 
       assert log =~ "Seeding BlinkTest.Repo (1 table)..."
       assert log =~ ~r/Seeded BlinkTest\.Repo \(1 table\) in \d+ ms/
+
+      # Every attached event must produce its line — a clause missing for an
+      # attached event would crash the handler and detach the whole logger.
+      assert log =~ ~s(Built table "users")
+      assert log =~ ~r/Copied 1 rows into "users"/
+    end
+
+    test "logs a failed build as an error" do
+      assert :ok = Blink.Telemetry.attach_default_logger()
+      on_exit(fn -> Blink.Telemetry.detach_default_logger() end)
+
+      log =
+        capture_log(fn ->
+          assert_raise RuntimeError, "boom", fn ->
+            Blink.Seeder.with_table(Blink.Seeder.new(), "users", fn _seeder, _name ->
+              raise "boom"
+            end)
+          end
+        end)
+
+      assert log =~ ~s(Building table "users" failed)
+      assert log =~ "boom"
     end
 
     test "logs a failed run as an error" do

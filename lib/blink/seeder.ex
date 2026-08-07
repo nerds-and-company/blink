@@ -9,8 +9,8 @@ defmodule Blink.Seeder do
 
     * `:tables` — data that will be inserted into the database.
     * `:table_order` - the insertion order for tables.
-    * `:table_opts` — per-table options (`:batch_size`, `:concurrency`) used
-      during the copy operation.
+    * `:table_opts` — per-table options (`:batch_size`, `:concurrency`,
+      `:reset_sequences`) used during the copy operation.
     * `:context` — auxiliary data used while building the seeder, not inserted.
   """
 
