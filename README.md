@@ -66,8 +66,8 @@ MyApp.Seeder.call()
 - **Stream support** for memory-efficient seeding
 - **CSV/JSON loading** with built-in helpers
 - **JSONB support** with automatic JSON encoding
-- **Telemetry spans** for builds, runs, and copies, with an attachable default logger
-- **Sequence resets** for serial and identity keys after seeding explicit IDs
+- **Telemetry** — build and run spans, per-table copy events with row counts, and an attachable default logger
+- **Opt-in sequence resets** for serial and identity keys after seeding explicit IDs
 - **Extensible** via adapters for other databases
 
 ## Documentation
