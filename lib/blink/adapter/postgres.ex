@@ -98,7 +98,11 @@ defmodule Blink.Adapter.Postgres do
         a sequence, so without this the application's next ordinary insert
         collides with a seeded row. Primary keys without a sequence (`uuid`,
         self-managed integers) are unaffected. No rows, no reset: the option
-        does nothing when the input is empty.
+        does nothing when the input is empty. Intended for seed-time use —
+        the reset derives its target from the `MAX()` of *visible* rows, so
+        on a table receiving concurrent inserts it can move the sequence
+        backwards past values already handed out to in-flight transactions,
+        causing unique violations later.
 
   ## Returns
 
