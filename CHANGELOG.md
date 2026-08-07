@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.1] - 2026-08-07
 
 ### Fixed
 - With `reset_sequences: true`, the sequence reset now runs before the copy `:stop` event, so a failing reset (for example, a role without `UPDATE` privilege on the sequence) can no longer raise after a success-signaling `:stop` was emitted. The reset's time is included in the event's `:duration`.
@@ -165,6 +165,7 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.9.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.1
 [0.9.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.0
 [0.8.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.7.0
