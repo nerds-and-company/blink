@@ -8,6 +8,7 @@
 - `Blink.Telemetry.attach_default_logger/1` (and `detach_default_logger/0`), which logs run start, stop, and failure at a configurable level and per-declaration build and per-table copy timings at `:debug` — replacing the hand-rolled `:timer.tc` + `Logger.info` wrappers around seed scripts.
 
 ### Changed
+- Added an explicit `telemetry ~> 1.1` requirement. Blink has emitted telemetry events for several releases but depended on `telemetry` only transitively through Ecto, leaving the real requirement unstated; the new spans rely on `:telemetry.span/3` and the test suite on `:telemetry_test` (telemetry 1.1+), so it is now declared.
 - **Breaking:** Every row must now have the same keys as the first row, or the copy raises `Blink.RowError`. The column list is read from the keys of the first row, so previously a key missing from a later row was silently inserted as `NULL` (or failed the COPY on a `NOT NULL` column without naming the culprit) and an extra key was silently dropped — the documented "all maps must have the same keys" contract was never enforced. Validation runs as rows are consumed: with `atomic: true` (the default) a failed seed leaves nothing behind; with `atomic: false` a mismatch surfaces like any other mid-copy failure, with earlier batches possibly committed.
 
 ## [0.8.0] - 2026-08-05
