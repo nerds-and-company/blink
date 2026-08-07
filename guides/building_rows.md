@@ -179,7 +179,7 @@ explicitly rather than reaching for `:infinity` — a runaway seed should fail,
 not hang the job:
 
 ```elixir
-run(seeder, MyApp.Repo, timeout: to_timeout(minute: 5))
+run(seeder, MyApp.Repo, timeout: :timer.minutes(5))
 ```
 
 ## Testing your seeder
