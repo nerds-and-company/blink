@@ -45,16 +45,6 @@ defmodule MyApp.Seeder do
 
   @timestamp DateTime.truncate(~U[2026-01-01 00:00:00Z], :second)
 
-  @users [
-    %{name: "Alice", email: "alice@example.com", role: "admin"},
-    %{name: "Bob", email: "bob@example.com", role: "member"}
-  ]
-
-  @sessions [
-    %{name: "Project ABC", code: "1234"},
-    %{name: "Project XYZ", code: "7890"}
-  ]
-
   def call do
     new()
     |> with_table(["users", "sessions", "session_users"])
@@ -63,11 +53,23 @@ defmodule MyApp.Seeder do
 
   @impl true
   def table(_seeder, "users") do
-    Enum.map(@users, &row/1)
+    Enum.map(
+      [
+        %{name: "Alice", email: "alice@example.com", role: "admin"},
+        %{name: "Bob", email: "bob@example.com", role: "member"}
+      ],
+      &row/1
+    )
   end
 
   def table(_seeder, "sessions") do
-    Enum.map(@sessions, &row/1)
+    Enum.map(
+      [
+        %{name: "Project ABC", code: "1234"},
+        %{name: "Project XYZ", code: "7890"}
+      ],
+      &row/1
+    )
   end
 
   def table(seeder, "session_users") do
@@ -88,8 +90,11 @@ end
 
 The conventions at work:
 
-  * **Fixed rows live in module attributes**; `table/2` clauses map them into
-    rows. The data reads as data, and the clauses stay small.
+  * **Row data lives in the clause that uses it.** Promote data to a module
+    attribute only when it is shared across clauses, derived at compile time,
+    or large enough to bury the clause's logic — the attribute is the
+    exception that keeps big or shared fixtures readable, not the default
+    home for every list.
   * **The entrypoint is `call/0`.** Parameterize it (`call(repo, opts)`) only
     when the seeder is reused across scripts or tests.
   * **Table names are strings**, matching the database and making clauses
