@@ -98,9 +98,12 @@ The conventions at work:
   * **The entrypoint is `call/0`.** Parameterize it (`call(repo, opts)`) only
     when the seeder is reused across scripts or tests.
   * **Table names are strings**, matching the database and making clauses
-    grep-able by table name.
+    grep-able by table name; atoms work identically.
   * **One timestamp for the whole seed**, defined once. Seed data does not
     need realistic insertion times, and a single value keeps rows comparable.
+    Give rows distinct stamps instead when anything in the application orders
+    or paginates by `inserted_at` without a tiebreaker — fifty rows tied on
+    one timestamp paginate nondeterministically.
   * **`@impl true` on the first clause** of each callback.
   * **Rely on the run defaults.** Seeds are atomic by default; pass only the
     options that differ.
