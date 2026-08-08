@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Documentation
+- Two honesty fixes in the Building Rows guide's canonical conventions: the string-table-keys bullet now acknowledges that atoms work identically (the choice is a preference, and the API reference always said both work), and the one-timestamp bullet warns to use distinct stamps when the application orders or paginates by `inserted_at` without a tiebreaker — rows tied on a single timestamp paginate nondeterministically.
 - Refined the Building Rows guide's data-placement convention: row data lives in the `table/2` clause that uses it, and moves to a module attribute only when it is shared across clauses, derived at compile time, or large enough to bury the clause's logic. The guide previously prescribed module attributes unconditionally, which hoisted single-use lists away from their point of use; the canonical example now keeps its data in the clauses.
 
 ## [0.9.1] - 2026-08-07
