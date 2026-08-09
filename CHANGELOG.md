@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Documentation
+- The Bulk Imports guide now shows the seeder pipeline as an import entry point alongside the direct `copy_to_table/4` call: a `use Blink` import module mixing a hand-assigned `import_batches` row (`put_table/3`) with CSV-derived readings (`with_table/2` + `from_csv/2`), which makes the guide's own delete-by-batch-id advice concrete. The guide previously told every reader to skip the seeder machinery — right for a single table, but it left multi-table imports, where declaration order, cross-table references, and the single-transaction run apply just as well, reimplementing `run/3` by hand.
 - Two honesty fixes in the Building Rows guide's canonical conventions: the string-table-keys bullet now acknowledges that atoms work identically (the choice is a preference, and the API reference always said both work), and the one-timestamp bullet warns to use distinct stamps when the application orders or paginates by `inserted_at` without a tiebreaker — rows tied on a single timestamp paginate nondeterministically.
 - Refined the Building Rows guide's data-placement convention: row data lives in the `table/2` clause that uses it, and moves to a module attribute only when it is shared across clauses, derived at compile time, or large enough to bury the clause's logic. The guide previously prescribed module attributes unconditionally, which hoisted single-use lists away from their point of use; the canonical example now keeps its data in the clauses.
 
