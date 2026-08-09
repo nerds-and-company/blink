@@ -12,7 +12,8 @@ see [Building Rows](building_rows.html).
 
 ## The entry point
 
-Skip the seeder machinery — call `copy_to_table/4` directly:
+For a single table, skip the seeder machinery — call `copy_to_table/4`
+directly:
 
 ```elixir
 "upload.csv"
@@ -23,6 +24,46 @@ Skip the seeder machinery — call `copy_to_table/4` directly:
 CSV values arrive as strings, and that is fine: `COPY` parses text input into
 the column's type, so `"123"` inserts into an `integer` column and
 `"2026-08-07 12:00:00"` into a `timestamp` without any transformation.
+
+## Imports that span tables
+
+The seeder pipeline is not seeding-specific either, and once an import
+writes more than one table it starts to earn its keep: tables are copied in
+declaration order (parents before children), `table/2` clauses read earlier
+tables and context off the seeder, and the default atomic run wraps every
+table in one transaction. `use Blink` works in an import module exactly as
+it does in a seeder module:
+
+```elixir
+defmodule MyApp.ReadingsImport do
+  use Blink
+
+  def call(path) do
+    batch_id = Ecto.UUID.generate()
+
+    new()
+    |> put_context(path: path, batch_id: batch_id)
+    |> put_table("import_batches", [%{id: batch_id, source: path}])
+    |> with_table("readings")
+    |> run(MyApp.Repo, timeout: :timer.minutes(1))
+  end
+
+  def table(seeder, "readings") do
+    from_csv(seeder.context.path,
+      stream: true,
+      transform: &Map.put(&1, "batch_id", seeder.context.batch_id)
+    )
+  end
+end
+```
+
+The two forms mix by design: the batch row is data in hand at the call site,
+so `put_table/3` takes it directly, while the readings derive from context,
+so they come from a `table/2` clause. Declaring `import_batches` first
+satisfies the foreign key on `readings.batch_id`, and tagging every reading
+with the batch id is the delete-by-batch-id handle the next section calls
+for. The batch id is a `uuid`, so assigning it client-side leaves no
+sequence behind to desynchronize (see Sequences below).
 
 ## Choosing an atomicity posture
 
@@ -38,8 +79,8 @@ reads differently:
   * **`atomic: false`** commits batches independently over parallel
     connections — the production-friendly mode for very large imports. The
     cost: a failure partway leaves earlier batches committed, so the import
-    must be re-runnable. Give rows an import batch id you can delete by, or
-    import into a staging table (below).
+    must be re-runnable. Give rows an import batch id you can delete by (as
+    `ReadingsImport` above does), or import into a staging table (below).
 
 A note on transactions of your own: an import running inside your
 `Repo.transaction` must stay atomic — `atomic: false` copies over separate
@@ -116,8 +157,9 @@ it — a wedged import should fail, not hold its connections forever.
 
 Each `copy_to_table/4` call emits `[:blink, :copy, :start]` and
 `[:blink, :copy, :stop]` (with a `:row_count` measurement). The run and build
-events documented in `Blink.Telemetry` belong to the seeder pipeline and do
-not fire for direct copies, so attach your own handler:
+events documented in `Blink.Telemetry` belong to the seeder pipeline —
+`ReadingsImport` above emits them, but a direct `copy_to_table/4` call does
+not — so for direct copies attach your own handler:
 
 ```elixir
 :telemetry.attach(
