@@ -48,6 +48,7 @@ defmodule MyApp.ReadingsImport do
     |> run(MyApp.Repo, timeout: :timer.minutes(1))
   end
 
+  @impl true
   def table(seeder, "readings") do
     from_csv(seeder.context.path,
       stream: true,

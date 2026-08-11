@@ -29,6 +29,7 @@ defmodule Blog.Seeder do
     |> run(Blog.Repo)
   end
 
+  @impl true
   def table(_seeder, "users") do
     Blink.from_csv("priv/seed_data/users.csv")
   end

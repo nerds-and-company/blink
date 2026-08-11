@@ -77,6 +77,7 @@ defmodule MyApp.Seeder do
     |> run(MyApp.Repo, adapter: MyApp.Adapters.MySQL)
   end
 
+  @impl true
   def table(_seeder, "users") do
     [
       %{id: 1, name: "Alice"},

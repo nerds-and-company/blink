@@ -17,6 +17,7 @@ defmodule Blog.Seeder do
     |> run(Blog.Repo, batch_size: 5_000, timeout: 60_000)
   end
 
+  @impl true
   def table(_seeder, "users"), do: # ...
   def table(_seeder, "posts"), do: # ...
 end
