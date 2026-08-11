@@ -52,6 +52,7 @@ defmodule Blog.Seeder do
     |> run(Blog.Repo)
   end
 
+  @impl true
   def table(_seeder, "users") do
     for _ <- 1..1000 do
       Map.merge(build(:user), %{
@@ -90,6 +91,7 @@ defmodule Shop.Seeder do
     |> run(Shop.Repo, reset_sequences: true)
   end
 
+  @impl true
   def table(_seeder, "products") do
     for id <- 1..200, do: to_row(build(:product), id)
   end

@@ -52,6 +52,7 @@ defmodule Blog.Seeder do
     |> run(Blog.Repo)
   end
 
+  @impl true
   def table(_seeder, "users") do
     [
       %{id: 1, name: "Alice", email: "alice@example.com"},

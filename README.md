@@ -27,6 +27,7 @@ defmodule MyApp.Seeder do
     |> run(MyApp.Repo)
   end
 
+  @impl true
   def table(_seeder, "users") do
     for i <- 1..1000 do
       %{
