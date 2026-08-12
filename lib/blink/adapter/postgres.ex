@@ -431,14 +431,16 @@ defmodule Blink.Adapter.Postgres do
          batch_size: batch_size,
          concurrency: concurrency,
          timeout: timeout,
-         atomic: atomic
+         atomic: atomic,
+         truncate: truncate
        }) do
     %{
       table_name: table_name,
       batch_size: batch_size,
       concurrency: concurrency,
       timeout: timeout,
-      atomic: atomic
+      atomic: atomic,
+      truncate: truncate
     }
   end
 

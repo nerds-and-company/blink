@@ -55,9 +55,10 @@ defmodule Blink.Telemetry do
       events at all.
       * Measurements: `:system_time`
       * Metadata: `:table_name`, `:batch_size`, `:concurrency`, `:timeout`,
-        `:atomic`
+        `:atomic`, `:truncate`
     * `[:blink, :copy, :stop]` — emitted when the table's copy — including
-      its sequence reset, with `reset_sequences: true` — completes. In an
+      its truncate (`truncate: true`) and its sequence reset
+      (`reset_sequences: true`) — completes. In an
       atomic run the event fires inside the transaction, so a later table's
       failure can still roll the counted rows back — `:stop` reports a
       completed copy, not a commit.

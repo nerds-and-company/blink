@@ -45,8 +45,9 @@ defmodule Blink do
       your `context/2` clause for that key.
 
   `use Blink` also imports `new/0` and, from this module, `put_table/2,3,4`,
-  `put_context/2,3`, `fetch_row!/3`, `copy_to_table/3,4`, `from_csv/1,2` and
-  `from_json/1,2`, so you call all of them unqualified.
+  `put_context/2,3`, `fetch_row!/3`, `to_row/1,2`, `to_rows/1,2`,
+  `copy_to_table/3,4`, `from_csv/1,2` and `from_json/1,2`, so you call all of
+  them unqualified.
 
   ### Choosing between with_* and put_*
 
@@ -557,8 +558,11 @@ defmodule Blink do
     if Keyword.fetch!(opts, :drop_nil_columns), do: drop_nil_columns(rows), else: rows
   end
 
+  # Code.ensure_loaded?/1 first: a schema struct can arrive before its module
+  # is loaded (e.g. via :erlang.binary_to_term/1), and function_exported?/3
+  # alone would misreport it as not a schema.
   defp ensure_schema!(module) do
-    unless function_exported?(module, :__schema__, 1) do
+    unless Code.ensure_loaded?(module) and function_exported?(module, :__schema__, 1) do
       raise ArgumentError, "expected an Ecto schema struct, got a #{inspect(module)} struct"
     end
   end
