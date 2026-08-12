@@ -6,9 +6,9 @@ shape, and covers the practical questions every seeder runs into —
 timestamps, defaults, lookups, naming, and testing.
 
 The short version: **build plain maps, not schema structs.** If your rows
-come from an existing struct source such as a shared ExMachina factory, see
-[Integrating with ExMachina](integrating_with_ex_machina.html) for the
-conversion recipe.
+come from an existing struct source such as a shared ExMachina factory,
+convert them at the seeder boundary with `Blink.to_row/2` — see
+[Integrating with ExMachina](integrating_with_ex_machina.html).
 
 ## COPY is not Repo.insert
 
