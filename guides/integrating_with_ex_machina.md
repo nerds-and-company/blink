@@ -78,7 +78,7 @@ A factory that your tests already use is a different situation. An
 `ExMachina.Ecto` factory returns schema structs, and rewriting it as a map
 factory would fork the definition — the test factory and the seed factory
 would drift apart. Keep the shared factory, and convert its structs at the
-seeder boundary:
+seeder boundary with `Blink.to_row/2` (imported by `use Blink`):
 
 ```elixir
 defmodule Shop.Seeder do
@@ -93,40 +93,27 @@ defmodule Shop.Seeder do
 
   @impl true
   def table(_seeder, "products") do
-    for id <- 1..200, do: to_row(build(:product), id)
-  end
-
-  # Take only schema fields: COPY derives its column list from the map keys,
-  # so an association or virtual field would otherwise be sent as a column.
-  defp to_row(struct, id \\ :auto) do
-    row =
-      struct
-      |> Map.from_struct()
-      |> Map.take(struct.__struct__.__schema__(:fields))
-
-    case id do
-      :auto -> Map.delete(row, :id)
-      id -> Map.put(row, :id, id)
-    end
+    for id <- 1..200, do: to_row(build(:product), id: id)
   end
 end
 ```
 
-What each step does:
+`to_row/2` keeps only the schema's persisted fields. This is the load-bearing
+part: `Map.from_struct/1` alone would keep `__meta__`, unloaded associations,
+and virtual fields, and Blink reads the column list from the map keys, so any
+stray key becomes a column in the COPY statement. It also future-proofs the
+seeder — an association added to the schema later cannot leak in.
 
-  * `Map.from_struct/1` drops `__struct__` but keeps everything else —
-    `__meta__`, unloaded associations, virtual fields.
-  * `Map.take(__schema__(:fields))` keeps only the persisted fields. This is
-    the load-bearing step: Blink reads the column list from the map keys, so
-    any stray key becomes a column in the COPY statement. It also
-    future-proofs the seeder — an association added to the schema later
-    cannot leak in.
-  * The `id` policy is yours. Passing an explicit id keeps the row
-    referenceable by later tables (pair it with `reset_sequences: true` so
-    the sequence clears the seeded ids). `:auto` deletes the key instead, so
-    the column is omitted from the COPY entirely and the database assigns ids
-    from the sequence — no reset needed, but no stable id to reference
-    either.
+The `:id` option is the primary-key policy, and the choice is the same
+explicit-vs-database trade-off as in
+[Choosing IDs](getting_started.html#choosing-ids). An explicit id, as above,
+keeps the row referenceable by later tables — pair it with
+`reset_sequences: true` so the sequence clears the seeded ids. The default
+(`id: :database`) drops the primary key instead, so the column is omitted
+from the COPY entirely and the database assigns ids from the sequence — no
+reset needed, but no stable id to reference either. And a factory that
+assigns its own ids (`Ecto.UUID.generate/0` and the like) keeps them with
+`id: :keep`.
 
 Values inside the struct need no special treatment: `Ecto.Enum` atoms,
 calendar structs, and embedded maps are all encoded by the adapter (see the
@@ -136,20 +123,14 @@ notes on `Blink.Adapter.Postgres.call/4`).
 
 A struct materializes *every* schema field, mostly as `nil` — and COPY sends
 an explicit `NULL` where `Repo.insert/2` would have omitted the field and let
-the database default apply. If your schema relies on database defaults, drop
-the columns that are nil in every row:
+the database default apply. If your schema relies on database defaults,
+convert the table with `Blink.to_rows/2` and drop the columns that are nil in
+every row:
 
 ```elixir
-# Mirror Repo.insert on a bare struct, which omits nil fields (database
-# defaults apply). Dropping per-table rather than per-row keeps all rows on
-# the same keys, which Blink requires.
-defp drop_all_nil_columns([]), do: []
-
-defp drop_all_nil_columns([first | _] = rows) do
-  all_nil =
-    Enum.filter(Map.keys(first), fn key -> Enum.all?(rows, &is_nil(Map.get(&1, key))) end)
-
-  Enum.map(rows, &Map.drop(&1, all_nil))
+@impl true
+def table(_seeder, "products") do
+  to_rows(build_list(200, :product), drop_nil_columns: true)
 end
 ```
 
@@ -161,8 +142,8 @@ that dropped its nils individually would raise `Blink.RowError`.
 - Factories dedicated to seeding: return plain maps, merge in IDs and
   timestamps, done.
 - Factories shared with the test suite: keep them returning structs and
-  convert at the boundary with `to_row/2`, adding `drop_all_nil_columns/1`
-  when the schema leans on database defaults.
+  convert at the boundary with `to_row/2` or `to_rows/2`, adding
+  `drop_nil_columns: true` when the schema leans on database defaults.
 
 For more information:
 

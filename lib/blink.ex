@@ -207,7 +207,11 @@ defmodule Blink do
           put_context: 3,
           put_table: 2,
           put_table: 3,
-          put_table: 4
+          put_table: 4,
+          to_row: 1,
+          to_row: 2,
+          to_rows: 1,
+          to_rows: 2
         ]
 
       @doc """
@@ -460,6 +464,129 @@ defmodule Blink do
               "table #{inspect(table_name)} has not been declared; " <>
                 "declared tables: #{inspect(seeder.table_order)}"
     end
+  end
+
+  @doc """
+  Converts an Ecto schema struct into a row map for copying.
+
+  The row keeps only the schema's persisted fields — `__meta__`, associations,
+  and virtual fields are dropped, so a stray key cannot become a column in the
+  COPY statement. Values are untouched: `Ecto.Enum` atoms, calendar structs,
+  and maps are encoded by the adapter (see the notes on
+  `Blink.Adapter.Postgres.call/4`).
+
+  For a struct factory shared with the test suite this replaces a hand-rolled
+  `Map.from_struct/1` + `Map.take/2` pass; see the
+  [ExMachina guide](integrating_with_ex_machina.html). Factories that exist
+  for seeding alone should return plain maps instead, making conversion
+  unnecessary — see [Building Rows](building_rows.html).
+
+  The `:id` option is the primary-key policy:
+
+    * `:database` (default) — the primary-key fields are dropped, so their
+      columns are omitted from the COPY and the database assigns them from
+      the sequence. No sequence reset is needed, but the row has no stable
+      id for later tables to reference.
+    * `:keep` — the struct's primary-key values are kept as they are, for
+      factories that assign their own ids (`Ecto.UUID.generate/0` and the
+      like).
+    * any other value — set as the row's primary key, which keeps the row
+      referenceable by later tables; pair this with `reset_sequences: true`
+      so the application's next insert clears the seeded ids. Raises
+      `ArgumentError` for a schema with a composite primary key.
+
+  Raises `ArgumentError` if `struct` is not an Ecto schema struct.
+
+  ## Examples
+
+      def table(_seeder, "products") do
+        for id <- 1..200, do: to_row(build(:product), id: id)
+      end
+  """
+  @spec to_row(struct(), opts :: Keyword.t()) :: map()
+  def to_row(struct, opts \\ [])
+
+  def to_row(%module{} = struct, opts) when is_list(opts) do
+    opts = Keyword.validate!(opts, id: :database)
+    ensure_schema!(module)
+
+    struct
+    |> Map.from_struct()
+    |> Map.take(module.__schema__(:fields))
+    |> apply_id_policy(module, Keyword.fetch!(opts, :id))
+  end
+
+  def to_row(other, _opts) do
+    raise ArgumentError, "expected an Ecto schema struct, got: #{inspect(other)}"
+  end
+
+  @doc """
+  Converts a list of Ecto schema structs into row maps for copying.
+
+  Each struct is converted as by `to_row/2`, with the `:id` policy applying
+  to every row — `:database` (the default) or `:keep`; a literal id would
+  give every row the same primary key, so it raises `ArgumentError` here.
+
+  The `:drop_nil_columns` option (default: `false`) drops every column whose
+  value is `nil` in all rows, mirroring how `Repo.insert/2` omits unset
+  fields so database defaults apply — a struct materializes every schema
+  field, mostly as `nil`, and COPY would otherwise send explicit `NULL`s.
+  The decision is per table rather than per row because every row must have
+  the same keys (`Blink.RowError`).
+
+  ## Examples
+
+      def table(_seeder, "products") do
+        to_rows(build_list(200, :product), drop_nil_columns: true)
+      end
+  """
+  @spec to_rows([struct()], opts :: Keyword.t()) :: [map()]
+  def to_rows(structs, opts \\ []) when is_list(structs) and is_list(opts) do
+    opts = Keyword.validate!(opts, id: :database, drop_nil_columns: false)
+
+    id = Keyword.fetch!(opts, :id)
+
+    if id not in [:database, :keep] do
+      raise ArgumentError,
+            "to_rows/2 accepts id: :database or id: :keep; a literal id would " <>
+              "give every row the same primary key — use to_row/2 for per-row ids"
+    end
+
+    rows = Enum.map(structs, &to_row(&1, id: id))
+
+    if Keyword.fetch!(opts, :drop_nil_columns), do: drop_nil_columns(rows), else: rows
+  end
+
+  defp ensure_schema!(module) do
+    unless function_exported?(module, :__schema__, 1) do
+      raise ArgumentError, "expected an Ecto schema struct, got a #{inspect(module)} struct"
+    end
+  end
+
+  defp apply_id_policy(row, module, :database),
+    do: Map.drop(row, module.__schema__(:primary_key))
+
+  defp apply_id_policy(row, _module, :keep), do: row
+
+  defp apply_id_policy(row, module, value) do
+    case module.__schema__(:primary_key) do
+      [pk] ->
+        Map.put(row, pk, value)
+
+      pks ->
+        raise ArgumentError,
+              "cannot set an explicit id on #{inspect(module)}: its primary key " <>
+                "is #{inspect(pks)}, not a single field"
+    end
+  end
+
+  defp drop_nil_columns([]), do: []
+
+  defp drop_nil_columns([first | _] = rows) do
+    all_nil =
+      Enum.filter(Map.keys(first), fn key -> Enum.all?(rows, &is_nil(Map.get(&1, key))) end)
+
+    Enum.map(rows, &Map.drop(&1, all_nil))
   end
 
   @doc """
