@@ -84,7 +84,7 @@ defmodule Blink.TelemetryTest do
       assert :ok = Blink.copy_to_table(rows, "users", Repo, batch_size: 2)
 
       assert_received {[:blink, :copy, :stop], ^ref, %{row_count: 5, duration: _},
-                       %{table_name: "users", batch_size: 2}}
+                       %{table_name: "users", batch_size: 2, truncate: false}}
     end
 
     test "a failed copy emits an exception event instead of :stop" do

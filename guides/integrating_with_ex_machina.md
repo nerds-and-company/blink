@@ -98,6 +98,11 @@ defmodule Shop.Seeder do
 end
 ```
 
+Earlier versions of this guide defined `to_row/2` by hand inside the seeder.
+Delete that local version when upgrading — it now conflicts with the import
+(`imported Blink.to_row/2 conflicts with local function`) — and move the id
+to a keyword: `to_row(struct, id: id)` instead of `to_row(struct, id)`.
+
 `to_row/2` keeps only the schema's persisted fields. This is the load-bearing
 part: `Map.from_struct/1` alone would keep `__meta__`, unloaded associations,
 and virtual fields, and Blink reads the column list from the map keys, so any
