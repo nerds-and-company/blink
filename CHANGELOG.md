@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.2] - 2026-08-12
+## [Unreleased]
 
 ### Documentation
 - Every complete seeder module in the README, the guides, and the `Blink` moduledoc now carries `@impl true` on its first `table/2` clause; only the Building Rows guide did before. The examples implemented a behaviour callback without annotating it, so a reader copying one into a project starts from code Elixir will not check against `Blink`: misspell or mis-arity a `table/2` clause later and it silently becomes an ordinary private-looking function instead of a compile-time warning. Partial snippets that show a clause without its surrounding `defmodule` are left alone, since `@impl` reads as noise outside a module.
@@ -173,7 +173,6 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
-[0.9.2]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.2
 [0.9.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.1
 [0.9.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.0
 [0.8.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.8.0
