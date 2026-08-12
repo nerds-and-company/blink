@@ -607,7 +607,8 @@ defmodule Blink do
       All other options are adapter-specific and validated by the adapter —
       unknown keys raise `ArgumentError`. See `Blink.Adapter.Postgres` for its
       options: `:atomic` (all-or-nothing copy), `:concurrency`, `:batch_size`,
-      `:timeout`, and `:reset_sequences`.
+      `:timeout`, `:reset_sequences`, and `:truncate` (replace the table's
+      contents instead of adding to them).
 
   ## Returns
 

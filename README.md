@@ -69,6 +69,7 @@ MyApp.Seeder.call()
 - **JSONB support** with automatic JSON encoding
 - **Telemetry** — build and run spans, per-table copy events with row counts, and an attachable default logger
 - **Opt-in sequence resets** for serial and identity keys after seeding explicit IDs
+- **Re-runnable seeds** — `truncate: true` replaces the tables' contents, atomically with the copy
 - **Extensible** via adapters for other databases
 
 ## Documentation

@@ -22,7 +22,16 @@ defmodule Blink.Adapter.Postgres do
   defmodule Context do
     @moduledoc false
 
-    @enforce_keys [:repo, :table_name, :batch_size, :concurrency, :timeout, :atomic, :escape_cp]
+    @enforce_keys [
+      :repo,
+      :table_name,
+      :batch_size,
+      :concurrency,
+      :timeout,
+      :atomic,
+      :truncate,
+      :escape_cp
+    ]
     defstruct @enforce_keys ++ [:columns, :columns_string, :row_counter]
 
     @type t :: %__MODULE__{
@@ -32,6 +41,7 @@ defmodule Blink.Adapter.Postgres do
             concurrency: pos_integer(),
             timeout: timeout(),
             atomic: boolean(),
+            truncate: boolean(),
             escape_cp: :binary.cp(),
             columns: [atom() | String.t()] | nil,
             columns_string: String.t() | nil,
@@ -103,6 +113,17 @@ defmodule Blink.Adapter.Postgres do
         on a table receiving concurrent inserts it can move the sequence
         backwards past values already handed out to in-flight transactions,
         causing unique violations later.
+      * `:truncate` - Truncate the table (with `RESTART IDENTITY`) before
+        copying, so the copy replaces the table's contents instead of adding
+        to them (default: `false`). With `atomic: true` the truncate joins
+        the copy's transaction — a failed copy rolls it back and the previous
+        contents survive; with `atomic: false` it commits on its own before
+        the first batch. The table is truncated even when the input is empty:
+        either way the copy leaves the table equal to its input. Postgres
+        refuses to truncate a table referenced by a foreign key from another
+        table; truncate such a table through `Blink.Seeder.run/3`, whose
+        run-level `truncate: true` covers every declared table in one
+        statement. See `truncate/3` for the statement's semantics.
 
   ## Returns
 
@@ -163,11 +184,15 @@ defmodule Blink.Adapter.Postgres do
       concurrency: Keyword.get_lazy(opts, :concurrency, fn -> default_concurrency(atomic) end),
       timeout: Keyword.fetch!(opts, :timeout),
       atomic: atomic,
+      truncate: Keyword.fetch!(opts, :truncate),
       escape_cp: :binary.compile_pattern(@escape_chars)
     }
 
     case uncons(rows) do
       :empty ->
+        # An empty input still truncates: the copy leaves the table equal to
+        # its input either way.
+        if context.truncate, do: truncate([table_name], repo, timeout: context.timeout)
         :ok
 
       {first_row, rest} ->
@@ -232,6 +257,42 @@ defmodule Blink.Adapter.Postgres do
     end)
   end
 
+  @doc """
+  Truncates `table_names` with one `TRUNCATE ... RESTART IDENTITY` statement.
+
+  Called by `Blink.Seeder.run/3` (with every declared table, before the first
+  copy) and by `call/4` (with the copied table) when run with
+  `truncate: true`. One statement means foreign keys between the listed
+  tables need no ordering. A foreign key from an unlisted table makes
+  Postgres refuse the truncate — `CASCADE` is deliberately not used, because
+  it would empty tables the caller never named.
+
+  `RESTART IDENTITY` restarts the truncated tables' sequences, so
+  database-assigned ids come out identical on every run. Unusually for
+  sequence operations, the restart is transactional: it rolls back with a
+  failed atomic seed or copy, as does the truncation itself.
+
+  ## Options
+
+    * `:timeout` - Time in milliseconds allowed for the statement (default:
+      15,000), which also caps how long the truncate waits for its
+      `ACCESS EXCLUSIVE` locks on the tables.
+  """
+  @impl true
+  @spec truncate([String.t(), ...], Ecto.Repo.t(), Keyword.t()) :: :ok
+  def truncate(table_names, repo, opts \\ [])
+      when is_list(table_names) and table_names != [] do
+    opts = Keyword.validate!(opts, timeout: 15_000)
+
+    repo.query!(
+      "TRUNCATE TABLE #{Enum.join(table_names, ", ")} RESTART IDENTITY",
+      [],
+      timeout: Keyword.fetch!(opts, :timeout)
+    )
+
+    :ok
+  end
+
   defp default_concurrency(true), do: System.schedulers_online()
   defp default_concurrency(false), do: 6
 
@@ -242,7 +303,8 @@ defmodule Blink.Adapter.Postgres do
         batch_size: 8_000,
         timeout: 15_000,
         atomic: true,
-        reset_sequences: false
+        reset_sequences: false,
+        truncate: false
       ])
 
     Enum.each(opts, &validate_opt!/1)
@@ -255,8 +317,9 @@ defmodule Blink.Adapter.Postgres do
   defp validate_opt!({:timeout, value})
        when (is_integer(value) and value > 0) or value == :infinity, do: :ok
 
-  defp validate_opt!({key, value}) when key in [:atomic, :reset_sequences] and is_boolean(value),
-    do: :ok
+  defp validate_opt!({key, value})
+       when key in [:atomic, :reset_sequences, :truncate] and is_boolean(value),
+       do: :ok
 
   defp validate_opt!({key, value}) do
     raise ArgumentError, "invalid value #{inspect(value)} for option #{inspect(key)}"
@@ -304,6 +367,9 @@ defmodule Blink.Adapter.Postgres do
   end
 
   defp run_copy(batches, %Context{atomic: false} = context) do
+    if context.truncate,
+      do: truncate([context.table_name], context.repo, timeout: context.timeout)
+
     batches
     |> Task.async_stream(
       fn batch -> try_execute_copy(batch, context) end,
@@ -407,6 +473,9 @@ defmodule Blink.Adapter.Postgres do
     repo.transaction(
       fn ->
         previous_timeout = put_statement_timeout(repo, timeout)
+
+        # Inside the transaction, so a failed copy rolls the truncate back.
+        if context.truncate, do: truncate([context.table_name], repo, timeout: timeout)
 
         result =
           batches

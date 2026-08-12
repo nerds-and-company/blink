@@ -4,7 +4,7 @@ Blink uses an adapter pattern to support different database bulk insert implemen
 
 ## The Adapter Behavior
 
-All adapters must implement the `Blink.Adapter` behaviour, which requires a single callback:
+All adapters must implement the `Blink.Adapter` behaviour, which requires a single callback (plus an optional `truncate/3`, needed only to support `truncate: true` — `Blink.Seeder.run/3` raises `ArgumentError` when the option is used with an adapter that lacks it):
 
 ```elixir
 @callback call(
