@@ -156,9 +156,10 @@ it — a wedged import should fail, not hold its connections forever.
 
 ## Observing imports
 
-Each `copy_to_table/4` call emits `[:blink, :copy, :start]` and
-`[:blink, :copy, :stop]` (with a `:row_count` measurement). The run and build
-events documented in `Blink.Telemetry` belong to the seeder pipeline —
+Each `copy_to_table/4` call emits `[:blink, :copy, :start]`, then
+`[:blink, :copy, :stop]` (with a `:row_count` measurement) on success or
+`[:blink, :copy, :exception]` on failure. The run and build events
+documented in `Blink.Telemetry` belong to the seeder pipeline —
 `ReadingsImport` above emits them, but a direct `copy_to_table/4` call does
 not — so for direct copies attach your own handler:
 

@@ -179,13 +179,21 @@ defmodule Blink.Adapter.Postgres do
         emit_start(context)
         start_time = System.monotonic_time()
 
-        [[first_row], rest]
-        |> Stream.concat()
-        |> Stream.chunk_every(context.batch_size)
-        |> validate_batches(context)
-        |> run_copy(context)
+        # catch, not rescue: a worker exit or a throw must re-raise with its
+        # original class, which reraise/3 cannot do.
+        try do
+          [[first_row], rest]
+          |> Stream.concat()
+          |> Stream.chunk_every(context.batch_size)
+          |> validate_batches(context)
+          |> run_copy(context)
 
-        if Keyword.fetch!(opts, :reset_sequences), do: reset_sequences(context)
+          if Keyword.fetch!(opts, :reset_sequences), do: reset_sequences(context)
+        catch
+          kind, reason ->
+            emit_exception(context, start_time, kind, reason, __STACKTRACE__)
+            :erlang.raise(kind, reason, __STACKTRACE__)
+        end
 
         emit_stop(context, start_time)
 
@@ -341,6 +349,14 @@ defmodule Blink.Adapter.Postgres do
         row_count: :counters.get(context.row_counter, 1)
       },
       copy_metadata(context)
+    )
+  end
+
+  defp emit_exception(context, start_time, kind, reason, stacktrace) do
+    :telemetry.execute(
+      [:blink, :copy, :exception],
+      %{duration: System.monotonic_time() - start_time},
+      Map.merge(copy_metadata(context), %{kind: kind, reason: reason, stacktrace: stacktrace})
     )
   end
 

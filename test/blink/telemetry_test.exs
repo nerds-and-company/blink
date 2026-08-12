@@ -86,6 +86,19 @@ defmodule Blink.TelemetryTest do
       assert_received {[:blink, :copy, :stop], ^ref, %{row_count: 5, duration: _},
                        %{table_name: "users", batch_size: 2}}
     end
+
+    test "a failed copy emits an exception event instead of :stop" do
+      ref = attach([[:blink, :copy, :stop], [:blink, :copy, :exception]])
+
+      assert_raise Blink.RowError, fn ->
+        Blink.copy_to_table([%{id: 1}, %{nope: 2}], "users", Repo)
+      end
+
+      assert_received {[:blink, :copy, :exception], ^ref, %{duration: _},
+                       %{table_name: "users", kind: :error, reason: %Blink.RowError{}}}
+
+      refute_received {[:blink, :copy, :stop], ^ref, _, _}
+    end
   end
 
   describe "attach_default_logger/1" do
@@ -124,6 +137,21 @@ defmodule Blink.TelemetryTest do
 
       assert log =~ ~s(Building table "users" failed)
       assert log =~ "boom"
+    end
+
+    test "logs a failed copy as an error" do
+      assert :ok = Blink.Telemetry.attach_default_logger()
+      on_exit(fn -> Blink.Telemetry.detach_default_logger() end)
+
+      log =
+        capture_log(fn ->
+          assert_raise Blink.RowError, fn ->
+            Blink.copy_to_table([%{id: 1}, %{nope: 2}], "users", Repo)
+          end
+        end)
+
+      assert log =~ ~s(Copying into "users" failed)
+      assert log =~ "Blink.RowError"
     end
 
     test "logs a failed run as an error" do
