@@ -29,7 +29,7 @@ end
 
 - `:timeout` - The time in milliseconds allowed for each database operation (default: 15,000). Set to `:infinity` to disable the timeout.
 
-- `:truncate` - Truncate every declared table (with `RESTART IDENTITY`) before the first copy (default: `false`), making the seed replace the tables' contents instead of adding to them — a re-runnable seed. One statement covers all declared tables, so foreign keys between them need no ordering; a foreign key from an undeclared table makes the truncate fail rather than silently cascading into tables the seeder never named. In an atomic seed the truncate joins the transaction, so a failed re-seed rolls back to the previous data. Destructive by design — for databases the seed owns, never live tables. See `Blink.Seeder.run/3`.
+- `:truncate` - Truncate every declared table (with `RESTART IDENTITY`) before the first copy (default: `false`), making the seed replace the tables' contents instead of adding to them — a re-runnable seed. One statement covers all declared tables, so foreign keys between them need no ordering; a foreign key from an undeclared table makes the truncate fail rather than silently cascading into tables the seeder never named. In an atomic seed the truncate joins the transaction, so a failed re-seed rolls back to the previous data; with `atomic: false` the truncate commits first and a failure leaves partial state — but re-running converges, since the next run's truncate is the cleanup. Destructive by design — for databases the seed owns, never live tables. See `Blink.Seeder.run/3`.
 
 The following options are specific to `Blink.Adapter.Postgres`:
 

@@ -249,7 +249,11 @@ defmodule Blink.Seeder do
   In an atomic seed the truncate joins the transaction: a failed re-seed
   rolls back to the data you had before it started. With `atomic: false` the
   truncate commits on its own before the first batch, so a failure leaves
-  the tables truncated and partially seeded.
+  the tables truncated and partially seeded. That partial state needs no
+  hand cleanup, though: the next run's truncate is the cleanup, so fixing
+  the data and re-running still converges — `truncate: true` gives
+  `atomic: false` seeds the same fix-and-re-run remedy that atomic seeds
+  get from rollback.
 
   `RESTART IDENTITY` restarts the sequences behind the truncated tables, so
   database-assigned ids come out identical on every run; seeds using
