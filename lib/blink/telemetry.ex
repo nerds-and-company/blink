@@ -51,21 +51,26 @@ defmodule Blink.Telemetry do
   Emitted by `Blink.Adapter.Postgres` for each table copied.
 
     * `[:blink, :copy, :start]` — emitted once per table, before the first
-      batch is written. A table whose builder returned no rows emits neither
-      `:start` nor `:stop`.
+      batch is written. A table whose builder returned no rows emits no copy
+      events at all.
       * Measurements: `:system_time`
       * Metadata: `:table_name`, `:batch_size`, `:concurrency`, `:timeout`,
         `:atomic`
     * `[:blink, :copy, :stop]` — emitted when the table's copy — including
-      its sequence reset, with `reset_sequences: true` — completes. A failed
-      copy emits no `:stop` (and there is no copy exception event): inside
-      `Blink.Seeder.run/3` the failure surfaces through the `[:blink, :run]`
-      span, while for a direct `Blink.copy_to_table/4` call the raised
-      exception is the only failure signal. In an atomic run the event fires
-      inside the transaction, so a later table's failure can still roll the
-      counted rows back — `:stop` reports a completed copy, not a commit.
+      its sequence reset, with `reset_sequences: true` — completes. In an
+      atomic run the event fires inside the transaction, so a later table's
+      failure can still roll the counted rows back — `:stop` reports a
+      completed copy, not a commit.
       * Measurements: `:duration`, `:row_count`
       * Metadata: as for `:start`
+    * `[:blink, :copy, :exception]` — emitted when the table's copy (or its
+      sequence reset) fails; the failed table emits no `:stop`. Inside
+      `Blink.Seeder.run/3` the `[:blink, :run]` span's `:exception` also
+      fires — this event names the table, that one the seed. For a direct
+      `Blink.copy_to_table/4` call, where no run span fires, this event is
+      the only failure signal besides the raised exception.
+      * Measurements: `:duration`
+      * Metadata: as for `:start`, plus `:kind`, `:reason`, `:stacktrace`
 
   Durations are in `:native` time units; convert with
   `System.convert_time_unit(duration, :native, :millisecond)`.
@@ -93,15 +98,18 @@ defmodule Blink.Telemetry do
     [:blink, :run, :exception],
     [:blink, :build, :stop],
     [:blink, :build, :exception],
-    [:blink, :copy, :stop]
+    [:blink, :copy, :stop],
+    [:blink, :copy, :exception]
   ]
 
   @doc """
   Attaches a logger to Blink's telemetry events.
 
-  Run start and stop are logged at `level`; run and build failures at
-  `:error`; build and copy completions at `:debug`. Returns
-  `{:error, :already_exists}` if the logger is already attached.
+  Run start and stop are logged at `level`; run, build, and copy failures at
+  `:error`; build and copy completions at `:debug`. A copy failure inside
+  `Blink.Seeder.run/3` logs two error lines: the copy's, naming the table,
+  and the run's, naming the seed. Returns `{:error, :already_exists}` if the
+  logger is already attached.
   """
   @spec attach_default_logger(level :: Logger.level()) :: :ok | {:error, :already_exists}
   def attach_default_logger(level \\ :info) do
@@ -149,6 +157,12 @@ defmodule Blink.Telemetry do
     Logger.debug(
       "Copied #{measurements.row_count} rows into #{inspect(metadata.table_name)} " <>
         "in #{ms(measurements)} ms"
+    )
+  end
+
+  def handle_event([:blink, :copy, :exception], measurements, metadata, _level) do
+    Logger.error(
+      "Copying into #{inspect(metadata.table_name)} " <> failure(measurements, metadata)
     )
   end
 
