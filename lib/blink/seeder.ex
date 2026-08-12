@@ -25,8 +25,10 @@ defmodule Blink.Seeder do
   # Options that configure the whole run rather than one table's copy. Allowing
   # them per-table would let a single table silently break a run-level
   # guarantee — e.g. a per-table `atomic: false` inside an atomic seed would
-  # copy that table over parallel connections outside the run's transaction.
-  @reserved_table_opts [:adapter, :atomic, :timeout]
+  # copy that table over parallel connections outside the run's transaction,
+  # and a per-table `truncate: true` would truncate mid-run, tripping over
+  # foreign keys that the run-level single-statement truncate handles.
+  @reserved_table_opts [:adapter, :atomic, :timeout, :truncate]
 
   @type t :: %__MODULE__{
           tables: %{optional(key()) => Enumerable.t()},
@@ -73,8 +75,8 @@ defmodule Blink.Seeder do
   Options given here override the ones passed to `run/3` for this table only.
   They are forwarded to the adapter, which owns and validates them — unknown
   keys and invalid values raise `ArgumentError` when the seeder runs. The
-  run-level options `:adapter`, `:atomic`, and `:timeout` configure the whole
-  run and raise `ArgumentError` here.
+  run-level options `:adapter`, `:atomic`, `:timeout`, and `:truncate`
+  configure the whole run and raise `ArgumentError` here.
 
   For `Blink.Adapter.Postgres` the per-table options are:
 
@@ -196,6 +198,9 @@ defmodule Blink.Seeder do
     * `:timeout` - The time in milliseconds allowed for each database
       operation (default: 15,000). Set to `:infinity` to disable it. See
       `Blink.Adapter.Postgres` for the exact semantics in each mode.
+    * `:truncate` - Truncate every declared table before the first copy
+      (default: `false`), making the seed replace the tables' contents — a
+      re-runnable seed. See "Re-running seeds" below.
     * `:adapter` - The adapter module to use (default:
       `Blink.Adapter.Postgres`).
 
@@ -230,6 +235,30 @@ defmodule Blink.Seeder do
   its rollback. Never pass `atomic: false` to a seed running inside your own
   transaction.
 
+  ## Re-running seeds
+
+  Pass `truncate: true` to make the seed replace its tables' contents: one
+  `TRUNCATE ... RESTART IDENTITY` statement over every declared table runs
+  before the first copy, so re-running the seed produces the same end state
+  as running it once against an empty database. The single statement covers
+  all declared tables at once, so foreign keys between them need no special
+  ordering. A foreign key from a table the seeder does *not* declare makes
+  the truncate fail — declare that table too; Blink never uses `CASCADE`,
+  which would silently empty tables the seeder never named.
+
+  In an atomic seed the truncate joins the transaction: a failed re-seed
+  rolls back to the data you had before it started. With `atomic: false` the
+  truncate commits on its own before the first batch, so a failure leaves
+  the tables truncated and partially seeded.
+
+  `RESTART IDENTITY` restarts the sequences behind the truncated tables, so
+  database-assigned ids come out identical on every run; seeds using
+  explicit ids pair `truncate: true` with `reset_sequences: true` for the
+  same determinism. The truncate takes an `ACCESS EXCLUSIVE` lock on every
+  declared table and destroys their contents — like `reset_sequences`, it
+  is meant for databases the seed owns, never live tables. `:truncate` is a
+  run-level option and cannot be set per-table.
+
   ## Telemetry
 
   `run/3` is wrapped in a `[:blink, :run]` telemetry span covering the copy
@@ -257,9 +286,20 @@ defmodule Blink.Seeder do
   """
   @spec run(seeder :: t(), repo :: Ecto.Repo.t(), opts :: Keyword.t()) :: :ok
   def run(%__MODULE__{} = seeder, repo, opts \\ []) when is_atom(repo) do
+    # Popped rather than forwarded: per-table truncation would trip over
+    # foreign keys between declared tables, so the run truncates them all in
+    # one statement up front instead.
+    {truncate, opts} = Keyword.pop(opts, :truncate, false)
+
+    unless is_boolean(truncate) do
+      raise ArgumentError, "invalid value #{inspect(truncate)} for option :truncate"
+    end
+
     atomic = Keyword.get(opts, :atomic, true)
 
     copy_tables = fn ->
+      if truncate, do: truncate_tables(seeder, repo, opts)
+
       Enum.each(seeder.table_order, fn table_name ->
         items = Map.fetch!(seeder.tables, table_name)
         table_opts = Map.fetch!(seeder.table_opts, table_name)
@@ -285,6 +325,24 @@ defmodule Blink.Seeder do
     end)
 
     :ok
+  end
+
+  defp truncate_tables(%__MODULE__{table_order: []}, _repo, _opts), do: :ok
+
+  defp truncate_tables(seeder, repo, opts) do
+    adapter = Keyword.get(opts, :adapter, Blink.Adapter.Postgres)
+
+    unless Code.ensure_loaded?(adapter) and function_exported?(adapter, :truncate, 3) do
+      raise ArgumentError,
+            "truncate: true requires the adapter to implement truncate/3, " <>
+              "which #{inspect(adapter)} does not"
+    end
+
+    adapter.truncate(
+      Enum.map(seeder.table_order, &key_to_string/1),
+      repo,
+      Keyword.take(opts, [:timeout])
+    )
   end
 
   @impl Access

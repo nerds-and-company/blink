@@ -83,6 +83,13 @@ reads differently:
     must be re-runnable. Give rows an import batch id you can delete by (as
     `ReadingsImport` above does), or import into a staging table (below).
 
+An import that *replaces* a table wholesale can pass `truncate: true`
+instead of deleting by hand: with `atomic: true` the truncate and the copy
+commit as one transaction, so readers see the old contents until the swap
+completes — at the price of the truncate's `ACCESS EXCLUSIVE` lock blocking
+every reader and writer for the import's duration. Not an upsert: rows not
+in the input are gone.
+
 A note on transactions of your own: an import running inside your
 `Repo.transaction` must stay atomic — `atomic: false` copies over separate
 connections that cannot see the transaction's uncommitted data and whose

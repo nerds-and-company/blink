@@ -52,6 +52,29 @@ defmodule Blink.RealPoolTest do
     assert count("posts") == 0
   end
 
+  test "truncate: true rolls back with a failed atomic seed" do
+    seed_users(5)
+
+    assert_raise Postgrex.Error, fn ->
+      Blink.Seeder.run(failing_seeder(), PoolRepo, atomic: true, truncate: true)
+    end
+
+    assert count("users") == 5
+  end
+
+  test "truncate: true commits before the batches with atomic: false" do
+    seed_users(5)
+
+    assert_raise Postgrex.Error, fn ->
+      Blink.Seeder.run(failing_seeder(), PoolRepo, atomic: false, truncate: true, batch_size: 20)
+    end
+
+    # The old 5 rows are gone and the new 100 committed: the truncate and the
+    # users batches each committed independently before posts failed.
+    assert count("users") == 100
+    assert count("posts") == 0
+  end
+
   test "restores the caller's statement_timeout after an atomic copy" do
     {:ok, {prior, current}} =
       PoolRepo.transaction(fn ->
@@ -82,6 +105,11 @@ defmodule Blink.RealPoolTest do
 
   defp truncate_via_pool_repo do
     PoolRepo.query!("TRUNCATE posts, users CASCADE")
+  end
+
+  defp seed_users(count) do
+    rows = for i <- 1..count, do: %{id: 1000 + i, name: "Old #{i}", email: "old#{i}@example.com"}
+    :ok = Blink.copy_to_table(rows, "users", PoolRepo)
   end
 
   defp count(table) do

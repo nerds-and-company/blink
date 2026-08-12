@@ -29,6 +29,8 @@ end
 
 - `:timeout` - The time in milliseconds allowed for each database operation (default: 15,000). Set to `:infinity` to disable the timeout.
 
+- `:truncate` - Truncate every declared table (with `RESTART IDENTITY`) before the first copy (default: `false`), making the seed replace the tables' contents instead of adding to them — a re-runnable seed. One statement covers all declared tables, so foreign keys between them need no ordering; a foreign key from an undeclared table makes the truncate fail rather than silently cascading into tables the seeder never named. In an atomic seed the truncate joins the transaction, so a failed re-seed rolls back to the previous data. Destructive by design — for databases the seed owns, never live tables. See `Blink.Seeder.run/3`.
+
 The following options are specific to `Blink.Adapter.Postgres`:
 
 - `:batch_size` - Number of rows per batch (default: 8,000). Rows are grouped into batches before being sent to the database.
@@ -39,7 +41,7 @@ The following options are specific to `Blink.Adapter.Postgres`:
 
 ## Per-table options
 
-Per-table options override global options for specific tables. The run-level options `:adapter`, `:atomic`, and `:timeout` apply to the whole run and raise `ArgumentError` when set per table; `:batch_size`, `:concurrency`, and `:reset_sequences` can be set freely. Pass them as the last argument to `with_table/3`:
+Per-table options override global options for specific tables. The run-level options `:adapter`, `:atomic`, `:timeout`, and `:truncate` apply to the whole run and raise `ArgumentError` when set per table; `:batch_size`, `:concurrency`, and `:reset_sequences` can be set freely. Pass them as the last argument to `with_table/3`:
 
 ```elixir
 def call do
@@ -74,7 +76,7 @@ Blink.copy_to_table(users, "users", Blog.Repo,
 )
 ```
 
-`copy_to_table/4` accepts the same options as `run/3`. Like a seed, a single copy is all-or-nothing unless you pass `atomic: false`.
+`copy_to_table/4` accepts the same options as `run/3`. Like a seed, a single copy is all-or-nothing unless you pass `atomic: false`. Here `truncate: true` truncates just the copied table — a single-table delete-and-reload — and fails if another table holds a foreign key to it; truncate such a table through a seeder run that declares both.
 
 ## Summary
 

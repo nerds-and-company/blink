@@ -62,6 +62,25 @@ defmodule Blink.Adapter do
               opts :: Keyword.t()
             ) :: :ok
 
+  @doc """
+  Truncates the given tables, so a seed or copy can replace their contents.
+
+  Optional. `Blink.Seeder.run/3` calls it with every declared table when run
+  with `truncate: true` — before the first copy, on the calling process so
+  the truncate enrolls in an atomic run's transaction — and raises
+  `ArgumentError` for an adapter that does not implement it. Truncate all
+  tables in a single statement (or the database's equivalent), so foreign
+  keys between them do not constrain declaration order.
+
+  ## Options
+
+    * `:timeout` - Time in milliseconds allowed for the operation, when given.
+  """
+  @callback truncate(table_names :: [String.t()], repo :: Ecto.Repo.t(), opts :: Keyword.t()) ::
+              :ok
+
+  @optional_callbacks truncate: 3
+
   @spec copy_to_table(
           rows :: Enumerable.t(),
           table_name :: String.t(),
