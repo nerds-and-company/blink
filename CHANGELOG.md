@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.10.0] - 2026-08-12
 
 ### Added
 - A `:truncate` option (default: `false`) on `Blink.Seeder.run/3` and `Blink.copy_to_table/4`, making seeds re-runnable: the seed replaces its tables' contents instead of adding to them, so running it N times ends like running it once. `run/3` truncates every declared table in one `TRUNCATE ... RESTART IDENTITY` statement before the first copy — foreign keys between declared tables need no ordering, while a foreign key from an undeclared table fails the truncate rather than silently cascading. In an atomic seed the truncate joins the transaction, so a failed re-seed rolls back to the previous data; with `atomic: false` the truncate commits before the first batch, and a failure leaves partial state that the next run's truncate cleans up — fix-and-re-run converges in both modes. `RESTART IDENTITY` makes database-assigned ids deterministic across runs, and pairing with `reset_sequences: true` does the same for explicit-id seeds. Run-level only — per-table `truncate:` raises `ArgumentError`, like `:atomic` and `:timeout`. On a direct `copy_to_table/4` call it truncates the one copied table (a delete-and-reload), even when the input is empty. Adapter support comes from a new optional `truncate/3` callback on `Blink.Adapter`, implemented by `Blink.Adapter.Postgres`; `truncate: true` with an adapter lacking it raises `ArgumentError`. The copy telemetry events report `:truncate` in their metadata alongside the other copy options. Destructive by design: meant for databases the seed owns, never live tables.
@@ -181,6 +181,7 @@
 - Comprehensive test suite with integration tests
 - Full documentation and examples
 
+[0.10.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.10.0
 [0.9.1]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.1
 [0.9.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.9.0
 [0.8.0]: https://github.com/nerds-and-company/blink/releases/tag/v0.8.0

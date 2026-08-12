@@ -170,7 +170,7 @@ If seeding is a development and test concern, scope both the dependency and
 the seeder code:
 
 ```elixir
-{:blink, "~> 0.9.0", only: [:dev, :test]}
+{:blink, "~> 0.10.0", only: [:dev, :test]}
 ```
 
 If a production boot script seeds bootstrap data (a `prod_seeds.exs`), the

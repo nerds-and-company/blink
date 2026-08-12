@@ -9,7 +9,7 @@ Add `blink` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:blink, "~> 0.9.0"}
+    {:blink, "~> 0.10.0"}
   ]
 end
 ```
